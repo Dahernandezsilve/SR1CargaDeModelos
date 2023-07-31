@@ -1,6 +1,7 @@
 #include <SDL2/SDL.h>
 #include <ctime>
 #include "glm/glm.hpp"
+#include "glm/gtc/matrix_transform.hpp" // Necesario para las funciones de transformación de matriz
 #include <iostream>
 #include <vector>
 #include <array>
@@ -24,8 +25,6 @@ SDL_Renderer* renderer;
 struct Face {
     std::array<int, 3> vertexIndices;
 };
-
-
 
 void point(int x, int y) {
     SDL_RenderDrawPoint(renderer, x, y);
@@ -72,7 +71,6 @@ std::vector<glm::vec3> setupVertexArray(const std::vector<glm::vec3>& vertices, 
     // Ajusta esta escala manualmente para obtener el tamaño deseado del modelo en la ventana
     float scale = 1.0f;
 
-    // For each face
     // For each face
     for (const auto& face : faces)
     {
@@ -138,15 +136,37 @@ bool loadOBJ(const std::string& path, std::vector<glm::vec3>& out_vertices, std:
         }
     }
 
-    // Calcular el promedio para obtener el centroide final
+    // Después de calcular el centroide en la función loadOBJ
+// ...
+
+// Calcular el promedio para obtener el centroide final
     centroid /= static_cast<float>(temp_vertices.size());
 
-    // Ahora que tenemos el centroide, podemos calcular las coordenadas finales de los vértices y agregarlos al vector de salida directamente
+// Realizar la rotación en el eje Y
+    float rotationAngleY = 90.0f; // Ángulo de rotación en grados (ajústalo según necesites)
+    glm::mat4 rotationMatrixY = glm::rotate(glm::mat4(1.0f), glm::radians(rotationAngleY), glm::vec3(0.0f, 1.0f, 0.0f));
+
+// Realizar la rotación en el eje X
+    float rotationAngleX = 0.0f; // Ángulo de rotación en grados (ajústalo según necesites)
+    glm::mat4 rotationMatrixX = glm::rotate(glm::mat4(1.0f), glm::radians(rotationAngleX), glm::vec3(1.0f, 0.0f, 0.0f));
+
+// Realizar la rotación en el eje Z
+    float rotationAngleZ = 0.0f; // Ángulo de rotación en grados (ajústalo según necesites)
+    glm::mat4 rotationMatrixZ = glm::rotate(glm::mat4(1.0f), glm::radians(rotationAngleZ), glm::vec3(0.0f, 0.0f, 1.0f));
+
+// Combinar las transformaciones de rotación en los tres ejes en una sola matriz
+    glm::mat4 combinedRotationMatrix = rotationMatrixY * rotationMatrixX * rotationMatrixZ;
+
+// Ahora que tenemos el centroide, podemos calcular las coordenadas finales de los vértices y agregarlos al vector de salida directamente
     out_vertices.reserve(temp_vertices.size());
     for (const auto& vertex : temp_vertices) {
         // Aplicar la traslación para centrar el vértice
         glm::vec3 centeredVertex = (vertex - centroid) * 30.0f; // Escala de 30.0f como en la función original
-        out_vertices.push_back(centeredVertex);
+
+        // Aplicar la rotación en los tres ejes (X, Y, Z)
+        glm::vec4 rotatedVertex = combinedRotationMatrix * glm::vec4(centeredVertex, 1.0f);
+
+        out_vertices.push_back(glm::vec3(rotatedVertex));
     }
 
     // Convert std::array<int, 3> to std::vector<std::array<int, 3>>
@@ -161,6 +181,8 @@ bool loadOBJ(const std::string& path, std::vector<glm::vec3>& out_vertices, std:
         out_faces.push_back(f1);
         out_faces.push_back(f2);
     }
+
+
 
     return true;
 }
