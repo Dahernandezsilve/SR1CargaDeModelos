@@ -70,7 +70,7 @@ std::vector<glm::vec3> setupVertexArray(const std::vector<glm::vec3>& vertices, 
     std::vector<glm::vec3> vertexArray;
 
     // Ajusta esta escala manualmente para obtener el tamaño deseado del modelo en la ventana
-    float scale = 30.0f;
+    float scale = 1.0f;
 
     // For each face
     // For each face
@@ -105,6 +105,8 @@ bool loadOBJ(const std::string& path, std::vector<glm::vec3>& out_vertices, std:
     std::vector<glm::vec3> temp_vertices;
     std::vector<std::array<int, 3>> temp_faces;
 
+    glm::vec3 centroid(0.0f); // Inicializar el centroide en (0, 0, 0)
+
     std::string line;
     while (std::getline(file, line)) {
         std::istringstream iss(line);
@@ -115,7 +117,10 @@ bool loadOBJ(const std::string& path, std::vector<glm::vec3>& out_vertices, std:
             glm::vec3 vertex;
             iss >> vertex.x >> vertex.y >> vertex.z;
             temp_vertices.push_back(vertex);
-            } else if (type == "f") {
+
+            // Actualizar el centroide con el nuevo vértice
+            centroid += vertex;
+        } else if (type == "f") {
             std::array<int, 3> face_indices{};
             for (int i = 0; i < 3; i++) {
                 std::string faceIndexStr;
@@ -133,7 +138,16 @@ bool loadOBJ(const std::string& path, std::vector<glm::vec3>& out_vertices, std:
         }
     }
 
-    out_vertices = std::move(temp_vertices);
+    // Calcular el promedio para obtener el centroide final
+    centroid /= static_cast<float>(temp_vertices.size());
+
+    // Ahora que tenemos el centroide, podemos calcular las coordenadas finales de los vértices y agregarlos al vector de salida directamente
+    out_vertices.reserve(temp_vertices.size());
+    for (const auto& vertex : temp_vertices) {
+        // Aplicar la traslación para centrar el vértice
+        glm::vec3 centeredVertex = (vertex - centroid) * 30.0f; // Escala de 30.0f como en la función original
+        out_vertices.push_back(centeredVertex);
+    }
 
     // Convert std::array<int, 3> to std::vector<std::array<int, 3>>
     out_faces.reserve(temp_faces.size() * 2); // Reserve space for triangles
