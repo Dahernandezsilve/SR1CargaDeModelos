@@ -3,6 +3,14 @@
 ## Descripción
 Este proyecto es parte del curso de Gráficas por Computadora de la Universidad del Valle de Guatemala (UVG). Es una aplicación de renderizado que utiliza la biblioteca SDL2 para dibujar un modelo 3D en una ventana. El modelo 3D se carga desde un archivo en formato OBJ y se muestra en pantalla utilizando la técnica de triangulación de caras. El objetivo de este proyecto es aprender conceptos fundamentales de gráficas por computadora y aplicarlos para renderizar objetos 3D.
 
+Este es el resultado de dibujar un cubo:
+
+![Cubo](Cubo.png)
+
+Y este es el resultado de renderizar una nave creada en blender (Por la perspectiva se genera así):
+
+![Nave](Nave.png)
+
 ## Dependencias
 - SDL2: Biblioteca utilizada para crear ventanas y renderizar gráficos.
 - GLM: Biblioteca matemática para operaciones con vectores y matrices.
