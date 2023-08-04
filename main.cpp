@@ -172,15 +172,21 @@ bool loadOBJ(const std::string& path, std::vector<glm::vec3>& out_vertices, std:
     // Convert std::array<int, 3> to std::vector<std::array<int, 3>>
     out_faces.reserve(temp_faces.size() * 2); // Reserve space for triangles
     for (const auto& face : temp_faces) {
-        Face f1{}, f2{};
-
-        // Triangulate the face (split the square into two triangles)
-        f1.vertexIndices = { face[0] - 1, face[1] - 1, face[2] - 1 };
-        f2.vertexIndices = { face[0] - 1, face[2] - 1, face[3] - 1 };
-
-        out_faces.push_back(f1);
-        out_faces.push_back(f2);
+        if (face.size() == 3) {
+            // If the face has 3 vertices, push it directly
+            Face f{};
+            f.vertexIndices = { face[0] - 1, face[1] - 1, face[2] - 1 };
+            out_faces.push_back(f);
+        } else if (face.size() == 4) {
+            // If the face has 4 vertices, split it into two triangles
+            Face f1{}, f2{};
+            f1.vertexIndices = { face[0] - 1, face[1] - 1, face[2] - 1 };
+            f2.vertexIndices = { face[0] - 1, face[2] - 1, face[3] - 1 };
+            out_faces.push_back(f1);
+            out_faces.push_back(f2);
+        }
     }
+
 
 
 
