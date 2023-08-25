@@ -1,201 +1,210 @@
 #include <SDL2/SDL.h>
 #include <ctime>
 #include "glm/glm.hpp"
-#include "glm/gtc/matrix_transform.hpp" // Necesario para las funciones de transformación de matriz
-#include <iostream>
+#include "glm/gtc/matrix_transform.hpp"
+#include "color.h"
 #include <vector>
-#include <array>
-#include <fstream>
-#include <sstream>
-#include <string>
+#include "loadObj.h"
+#include "vertexArray.h"
+#include "uniform.h"
+#include "shaders.h"
 
 const int WINDOW_WIDTH = 800;
 const int WINDOW_HEIGHT = 800;
 
-class Color {
-public:
-    uint8_t r, g, b, a;
-};
-
 Color clearColor = {0, 0, 0, 255};
 Color currentColor = {255, 255, 255, 255};
+Color colorA(255, 0, 0, 255); // Red color
+Color colorB(0, 255, 255, 255); // Green color
+Color colorC(0, 24, 255, 255); // Blue color
+glm::vec3 L = glm::vec3(0, 0, 200.0f); // Dirección de la luz en el espacio del ojo
 
+Uniforms uniforms;
 SDL_Renderer* renderer;
 
-struct Face {
-    std::array<int, 3> vertexIndices;
-};
+std::array<double, WINDOW_WIDTH * WINDOW_HEIGHT> zbuffer;
 
-void point(int x, int y) {
-    SDL_RenderDrawPoint(renderer, x, y);
+Color interpolateColor(const glm::vec3& barycentricCoord, const Color& colorA, const Color& colorB, const Color& colorC) {
+    float u = barycentricCoord.x;
+    float v = barycentricCoord.y;
+    float w = barycentricCoord.z;
+
+    // Realiza una interpolación lineal para cada componente del color
+    uint8_t r = static_cast<uint8_t>(u * colorA.r + v * colorB.r + w * colorC.r);
+    uint8_t g = static_cast<uint8_t>(u * colorA.g + v * colorB.g + w * colorC.g);
+    uint8_t b = static_cast<uint8_t>(u * colorA.b + v * colorB.b + w * colorC.b);
+    uint8_t a = static_cast<uint8_t>(u * colorA.a + v * colorB.a + w * colorC.a);
+
+    return Color(r, g, b, a);
 }
 
-void line(const glm::vec3& start, const glm::vec3& end) {
-    SDL_RenderDrawLine(renderer, static_cast<int>(start.x), static_cast<int>(start.y),
-                       static_cast<int>(end.x), static_cast<int>(end.y));
+bool isBarycentricCoordInsideTriangle(const glm::vec3& barycentricCoord) {
+    return barycentricCoord.x >= 0 && barycentricCoord.y >= 0 && barycentricCoord.z >= 0 &&
+           barycentricCoord.x <= 1 && barycentricCoord.y <= 1 && barycentricCoord.z <= 1 &&
+           glm::abs(1 - (barycentricCoord.x + barycentricCoord.y + barycentricCoord.z)) < 0.00001f;
 }
 
-void triangle(const glm::vec3& A, const glm::vec3& B, const glm::vec3& C) {
-    line(A, B);
-    line(B, C);
-    line(C, A);
+glm::vec3 calculateBarycentricCoord(const glm::vec2& A, const glm::vec2& B, const glm::vec2& C, const glm::vec2& P) {
+    float denominator = (B.y - C.y) * (A.x - C.x) + (C.x - B.x) * (A.y - C.y);
+    float u = ((B.y - C.y) * (P.x - C.x) + (C.x - B.x) * (P.y - C.y)) / denominator;
+    float v = ((C.y - A.y) * (P.x - C.x) + (A.x - C.x) * (P.y - C.y)) / denominator;
+    float w = 1 - u - v;
+    return glm::vec3(u, v, w);
 }
 
-void render(const std::vector<glm::vec3>& vertexArray) {
-    // Limpiar la pantalla antes de dibujar
-    SDL_SetRenderDrawColor(renderer, clearColor.r, clearColor.g, clearColor.b, clearColor.a);
-    SDL_RenderClear(renderer);
+std::vector<Fragment> triangle(const Vertex& a, const Vertex& b, const Vertex& c) {
+    std::vector<Fragment> fragments;
 
-    // Establecer el color actual para dibujar los triángulos
-    SDL_SetRenderDrawColor(renderer, currentColor.r, currentColor.g, currentColor.b, currentColor.a);
+    // Calculate the bounding box of the triangle
+    int minX = static_cast<int>(std::min({a.position.x, b.position.x, c.position.x}));
+    int minY = static_cast<int>(std::min({a.position.y, b.position.y, c.position.y}));
+    int maxX = static_cast<int>(std::max({a.position.x, b.position.x, c.position.x}));
+    int maxY = static_cast<int>(std::max({a.position.y, b.position.y, c.position.y}));
 
-    // Dibujar cada triángulo con las coordenadas proyectadas
-    for (size_t i = 0; i < vertexArray.size(); i += 3) {
-        const glm::vec3& A = vertexArray[i];
-        const glm::vec3& B = vertexArray[i + 1];
-        const glm::vec3& C = vertexArray[i + 2];
+    // Iterate over each point in the bounding box
+    for (int y = minY; y <= maxY; ++y) {
+        for (int x = minX; x <= maxX; ++x) {
+            glm::vec2 pixelPosition(static_cast<float>(x) + 0.5f, static_cast<float>(y) + 0.5f); // Central point of the pixel
+            glm::vec3 barycentricCoord = calculateBarycentricCoord(a.position, b.position, c.position, pixelPosition);
 
-        // Aplicar el offset para que el modelo se centre en la ventana
-        int offsetX = WINDOW_WIDTH / 2;
-        int offsetY = WINDOW_HEIGHT / 2;
+            if (isBarycentricCoordInsideTriangle(barycentricCoord)) {
+                Color p {0, 0, 0};
+                // Interpolate attributes (color, depth, etc.) using barycentric coordinates
+                Color interpolatedColor = interpolateColor(barycentricCoord, p, p, p);
 
-        // Dibujar los triángulos sumando el offset
-        triangle(A + glm::vec3(offsetX, offsetY, 0), B + glm::vec3(offsetX, offsetY, 0), C + glm::vec3(offsetX, offsetY, 0));
-    }
-}
+                // Calculate the interpolated Z value using barycentric coordinates
+                float interpolatedZ = barycentricCoord.x * a.position.z + barycentricCoord.y * b.position.z + barycentricCoord.z * c.position.z;
 
-std::vector<glm::vec3> setupVertexArray(const std::vector<glm::vec3>& vertices, const std::vector<Face>& faces)
-{
-    std::vector<glm::vec3> vertexArray;
+                // Create a fragment with the position, interpolated attributes, and Z coordinate
+                Fragment fragment;
+                fragment.position = glm::ivec2(x, y);
+                fragment.color = interpolatedColor;
+                fragment.z = interpolatedZ;
 
-    // Ajusta esta escala manualmente para obtener el tamaño deseado del modelo en la ventana
-    float scale = 1.0f;
-
-    // For each face
-    for (const auto& face : faces)
-    {
-        // Get the vertex positions from the input arrays using the indices from the face
-        glm::vec3 vertexPosition1 = vertices[face.vertexIndices[0]];
-        glm::vec3 vertexPosition2 = vertices[face.vertexIndices[1]];
-        glm::vec3 vertexPosition3 = vertices[face.vertexIndices[2]];
-
-        // Scale the vertex positions
-        glm::vec3 vertexScaled1 = vertexPosition1 * scale;
-        glm::vec3 vertexScaled2 = vertexPosition2 * scale;
-        glm::vec3 vertexScaled3 = vertexPosition3 * scale;
-
-        // Add the vertex positions to the vertex array
-        vertexArray.push_back(vertexScaled1);
-        vertexArray.push_back(vertexScaled2);
-        vertexArray.push_back(vertexScaled3);
-    }
-
-    return vertexArray;
-}
-
-bool loadOBJ(const std::string& path, std::vector<glm::vec3>& out_vertices, std::vector<Face>& out_faces) {
-    std::ifstream file(path);
-    if (!file.is_open()) {
-        std::cerr << "Error: Could not open OBJ file: " << path << std::endl;
-        return false;
-    }
-
-    std::vector<glm::vec3> temp_vertices;
-    std::vector<std::array<int, 3>> temp_faces;
-
-    glm::vec3 centroid(0.0f); // Inicializar el centroide en (0, 0, 0)
-
-    std::string line;
-    while (std::getline(file, line)) {
-        std::istringstream iss(line);
-        std::string type;
-        iss >> type;
-
-        if (type == "v") {
-            glm::vec3 vertex;
-            iss >> vertex.x >> vertex.y >> vertex.z;
-            temp_vertices.push_back(vertex);
-
-            // Actualizar el centroide con el nuevo vértice
-            centroid += vertex;
-        } else if (type == "f") {
-            std::array<int, 3> face_indices{};
-            for (int i = 0; i < 3; i++) {
-                std::string faceIndexStr;
-                iss >> faceIndexStr;
-
-                // Find the position of the first slash to extract the vertex index
-                size_t pos = faceIndexStr.find_first_of('/');
-                if (pos != std::string::npos) {
-                    faceIndexStr = faceIndexStr.substr(0, pos);
-                }
-
-                face_indices[i] = std::stoi(faceIndexStr); // No restar 1
+                fragments.push_back(fragment);
             }
-            temp_faces.push_back(face_indices);
         }
     }
 
-    // Después de calcular el centroide en la función loadOBJ
-// ...
+    return fragments;
+}
 
-// Calcular el promedio para obtener el centroide final
-    centroid /= static_cast<float>(temp_vertices.size());
-
-// Realizar la rotación en el eje Y
-    float rotationAngleY = 90.0f; // Ángulo de rotación en grados (ajústalo según necesites)
-    glm::mat4 rotationMatrixY = glm::rotate(glm::mat4(1.0f), glm::radians(rotationAngleY), glm::vec3(0.0f, 1.0f, 0.0f));
-
-// Realizar la rotación en el eje X
-    float rotationAngleX = 0.0f; // Ángulo de rotación en grados (ajústalo según necesites)
-    glm::mat4 rotationMatrixX = glm::rotate(glm::mat4(1.0f), glm::radians(rotationAngleX), glm::vec3(1.0f, 0.0f, 0.0f));
-
-// Realizar la rotación en el eje Z
-    float rotationAngleZ = 0.0f; // Ángulo de rotación en grados (ajústalo según necesites)
-    glm::mat4 rotationMatrixZ = glm::rotate(glm::mat4(1.0f), glm::radians(rotationAngleZ), glm::vec3(0.0f, 0.0f, 1.0f));
-
-// Combinar las transformaciones de rotación en los tres ejes en una sola matriz
-    glm::mat4 combinedRotationMatrix = rotationMatrixY * rotationMatrixX * rotationMatrixZ;
-
-// Ahora que tenemos el centroide, podemos calcular las coordenadas finales de los vértices y agregarlos al vector de salida directamente
-    out_vertices.reserve(temp_vertices.size());
-    for (const auto& vertex : temp_vertices) {
-        // Aplicar la traslación para centrar el vértice
-        glm::vec3 centeredVertex = (vertex - centroid) * 30.0f; // Escala de 30.0f como en la función original
-
-        // Aplicar la rotación en los tres ejes (X, Y, Z)
-        glm::vec4 rotatedVertex = combinedRotationMatrix * glm::vec4(centeredVertex, 1.0f);
-
-        out_vertices.push_back(glm::vec3(rotatedVertex));
+void render(const std::vector<Vertex>& vertexArray,  const Uniforms& uniforms) {
+    std::vector<Vertex> transformedVertexArray;
+    for (const auto& vertex : vertexArray) {
+        auto transformedVertex = vertexShader(vertex, uniforms);
+        transformedVertexArray.push_back(transformedVertex);
     }
 
-    // Convert std::array<int, 3> to std::vector<std::array<int, 3>>
-    out_faces.reserve(temp_faces.size() * 2); // Reserve space for triangles
-    for (const auto& face : temp_faces) {
-        if (face.size() == 3) {
-            // If the face has 3 vertices, push it directly
-            Face f{};
-            f.vertexIndices = { face[0] - 1, face[1] - 1, face[2] - 1 };
-            out_faces.push_back(f);
-        } else if (face.size() == 4) {
-            // If the face has 4 vertices, split it into two triangles
-            Face f1{}, f2{};
-            f1.vertexIndices = { face[0] - 1, face[1] - 1, face[2] - 1 };
-            f2.vertexIndices = { face[0] - 1, face[2] - 1, face[3] - 1 };
-            out_faces.push_back(f1);
-            out_faces.push_back(f2);
+    // Clear z-buffer at the beginning of each frame
+    std::fill(zbuffer.begin(), zbuffer.end(), std::numeric_limits<double>::max());
+
+
+    for (size_t i = 0; i < transformedVertexArray.size(); i += 3) {
+        const Vertex& a = transformedVertexArray[i];
+        const Vertex& b = transformedVertexArray[i + 1];
+        const Vertex& c = transformedVertexArray[i + 2];
+
+        glm::vec3 A = a.position;
+        glm::vec3 B = b.position;
+        glm::vec3 C = c.position;
+
+        // Calculate the bounding box of the triangle
+        int minX = static_cast<int>(std::min({A.x, B.x, C.x}));
+        int minY = static_cast<int>(std::min({A.y, B.y, C.y}));
+        int maxX = static_cast<int>(std::max({A.x, B.x, C.x}));
+        int maxY = static_cast<int>(std::max({A.y, B.y, C.y}));
+
+        // Iterate over each point in the bounding box
+        for (int y = minY; y <= maxY; ++y) {
+            for (int x = minX; x <= maxX; ++x) {
+                glm::vec2 pixelPosition(static_cast<float>(x) + 0.5f, static_cast<float>(y) + 0.5f); // Central point of the pixel
+                glm::vec3 barycentricCoord = calculateBarycentricCoord(A, B, C, pixelPosition);
+
+                if (isBarycentricCoordInsideTriangle(barycentricCoord)) {
+                    Color g {200,0,0};
+                    // Interpolate attributes (color, depth, etc.) using barycentric coordinates
+                    Color interpolatedColor = interpolateColor(barycentricCoord, g, g, g);
+
+                    // Calculate the depth (Z-coordinate) of the fragment using barycentric coordinates
+                    float depth = barycentricCoord.x * A.z + barycentricCoord.y * B.z + barycentricCoord.z * C.z;
+
+
+                    glm::vec3 normal = a.normal * barycentricCoord.x + b.normal * barycentricCoord.y+ c.normal * barycentricCoord.z;
+
+                    float fragmentIntensity = glm::dot(normal, glm::vec3 (0,0,1.0f));
+                    // Apply fragment shader to calculate final color with shading
+                    Color finalColor = interpolatedColor * fragmentIntensity;
+
+                    // Create a fragment with the position, interpolated attributes, and depth
+                    Fragment fragment;
+                    fragment.position = glm::ivec2(x, y);
+                    fragment.color = finalColor;
+                    fragment.z = depth;  // Set the depth of the fragment
+
+                    // Check if the fragment is closer than the stored value in the z-buffer
+                    int index = y * WINDOW_WIDTH + x;
+                    if (depth < zbuffer[index]) {
+                        // Apply fragment shader to calculate final color
+                        Color fragmentShaderf = fragmentShader(fragment);
+
+                        // Draw the fragment using SDL_SetRenderDrawColor and SDL_RenderDrawPoint
+                        SDL_SetRenderDrawColor(renderer, fragmentShaderf.r, fragmentShaderf.g, fragmentShaderf.b, fragmentShaderf.a);
+                        SDL_RenderDrawPoint(renderer, x, y);
+
+                        // Update the z-buffer value for this pixel
+                        zbuffer[index] = depth;
+                    }
+                }
+            }
         }
     }
+}
 
+glm::mat4 createViewportMatrix() {
+    glm::mat4 viewport = glm::mat4(1.0f);
 
+    // Scale
+    viewport = glm::scale(viewport, glm::vec3(WINDOW_WIDTH / 2.0f, WINDOW_HEIGHT / 2.0f, 0.5f));
 
+    // Translate
+    viewport = glm::translate(viewport, glm::vec3(1.0f, 1.0f, 0.5f));
 
-    return true;
+    return viewport;
+}
+
+glm::mat4 createProjectionMatrix() {
+    float fovInDegrees = 45.0f;
+    float aspectRatio = WINDOW_WIDTH / WINDOW_HEIGHT;
+    float nearClip = 0.1f;
+    float farClip = 100.0f;
+
+    return glm::perspective(glm::radians(fovInDegrees), aspectRatio, nearClip, farClip);
+}
+
+float a = 3.14f / 3.0f;
+
+glm::mat4 createModelMatrix() {
+    glm::mat4 transtation = glm::translate(glm::mat4(1), glm::vec3(0.0f, 0.0f, 0.0f));
+    glm::mat4 scale = glm::scale(glm::mat4(1), glm::vec3(1.0f, 1.0f, 1.0f));
+    glm::mat4 rotation = glm::rotate(glm::mat4(1), glm::radians((a++)), glm::vec3(0, 1.0f, 0.0f));
+    return transtation * scale * rotation;
 }
 
 int main(int argc, char* argv[]) {
 
     SDL_Init(SDL_INIT_EVERYTHING);
+
+    glm::vec3 translation(0.0f, 0.0f, 0.0f); // Definir la posición del objeto en el mundo
+    glm::vec3 rotationAngles(0.0f, 0.0f, 0.0f); // Ángulos de rotación en los ejes X, Y y Z (en grados)
+    glm::vec3 scale(1.0f, 1.0f, 1.0f);
+
+
+    glm::vec3 cameraPosition(0.0f, 0.0f, 5.0f); // Mueve la cámara hacia atrás
+    glm::vec3 targetPosition(0.0f, 0.0f, 0.0f);   // Coloca el centro de la escena en el origen
+    glm::vec3 upVector(0.0f, 1.0f, 0.0f);
+
+    uniforms.view = glm::lookAt(cameraPosition, targetPosition, upVector);
 
     srand(time(nullptr));
 
@@ -206,18 +215,29 @@ int main(int argc, char* argv[]) {
     SDL_GetRendererOutputSize(renderer, &renderWidth, &renderHeight);
 
     std::vector<glm::vec3> vertices;
+    std::vector<glm::vec3> normal;
     std::vector<Face> faces;
 
-    bool success = loadOBJ("../Nave.obj", vertices, faces);
+    bool success = loadOBJ("../Nave6.obj", vertices, normal, faces);
     if (!success) {
         // Manejo del error si la carga del archivo falla
         return 1;
     }
 
-    std::vector<glm::vec3> vertexArray = setupVertexArray(vertices, faces);
+// Aplicar una rotación adicional de 180 grados alrededor del eje X para invertir la nave
+    glm::mat4 additionalRotation = glm::rotate(glm::mat4(1.0f), glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f));
+
+    for (glm::vec3& vertex : vertices) {
+        vertex = glm::vec3(additionalRotation * glm::vec4(vertex, 1.0f));
+    }
+
+    std::vector<Vertex> vertexArray = setupVertexArray(vertices, normal, faces);
 
     bool running = true;
     SDL_Event event;
+    glm::mat4 rotationMatrix = glm::mat4(1.0f); // Inicializa la matriz de rotación
+    glm::mat4 traslateMatrix = glm::mat4(1.0f); // Inicializa la matriz de rotación
+    glm::mat4 scaleMatrix = glm::mat4(1.0f); // Inicializa la matriz de rotación
 
     while (running) {
         while (SDL_PollEvent(&event)) {
@@ -225,13 +245,22 @@ int main(int argc, char* argv[]) {
                 running = false;
             }
         }
+
+        uniforms.model = createModelMatrix();    // Asignar la matriz de proyección a uniforms.projection
+        uniforms.projection = createProjectionMatrix();
+        uniforms.viewport = createViewportMatrix();
+
+
         SDL_SetRenderDrawColor(renderer, clearColor.r, clearColor.g, clearColor.b, clearColor.a);
         SDL_RenderClear(renderer);
+
+        glm::vec4 transformedLight = glm::inverse(createModelMatrix()) * glm::vec4(L, 0.0f);
+        glm::vec3 transformedLightDirection = glm::normalize(glm::vec3(transformedLight));
+
         // Llamada a la función render con la matriz de vértices transformados
-        SDL_SetRenderDrawColor(renderer, currentColor.r, currentColor.g, currentColor.b, currentColor.a);
-        render(vertexArray); // Solo se pasa la matriz de vértices transformados
+        render(vertexArray, uniforms);
+
         SDL_RenderPresent(renderer);
-        SDL_Delay(1000 / 60);
     }
 
     SDL_DestroyRenderer(renderer);

@@ -8,7 +8,17 @@ set(EXECUTABLE_NAME "SR1CargaDeModelos")
 
 set(CMAKE_CXX_STANDARD 23)
 
-add_executable(SR1CargaDeModelos main.cpp)
+add_executable(SR1CargaDeModelos main.cpp
+        fragment.h
+        uniform.h
+        color.h
+        line.h
+        triangle.h
+        vertexArray.h
+        loadObj.h
+        point.h
+        framebuffer.h
+        shaders.h)
 
 set_target_properties(${EXECUTABLE_NAME} PROPERTIES LINK_FLAGS "-Wl,-subsystem,console")
 target_include_directories(SR1CargaDeModelos PRIVATE ${SDL2_INCLUDE_DIRS})
