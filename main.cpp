@@ -132,7 +132,10 @@ void render(const std::vector<Vertex>& vertexArray,  const Uniforms& uniforms) {
 
                     glm::vec3 normal = a.normal * barycentricCoord.x + b.normal * barycentricCoord.y+ c.normal * barycentricCoord.z;
 
-                    float fragmentIntensity = glm::dot(normal, glm::vec3 (0,0,1.0f));
+                    float fragmentIntensity = glm::dot(normal, glm::vec3 (0,0.0f,1.0f));
+                    if (fragmentIntensity<=0 ){
+                        continue;
+                    }
                     // Apply fragment shader to calculate final color with shading
                     Color finalColor = interpolatedColor * fragmentIntensity;
 
@@ -150,7 +153,7 @@ void render(const std::vector<Vertex>& vertexArray,  const Uniforms& uniforms) {
 
                         // Draw the fragment using SDL_SetRenderDrawColor and SDL_RenderDrawPoint
                         SDL_SetRenderDrawColor(renderer, fragmentShaderf.r, fragmentShaderf.g, fragmentShaderf.b, fragmentShaderf.a);
-                        SDL_RenderDrawPoint(renderer, x, y);
+                        SDL_RenderDrawPoint(renderer, x, WINDOW_HEIGHT-y);
 
                         // Update the z-buffer value for this pixel
                         zbuffer[index] = depth;
@@ -187,14 +190,12 @@ float a = 3.14f / 3.0f;
 glm::mat4 createModelMatrix() {
     glm::mat4 transtation = glm::translate(glm::mat4(1), glm::vec3(0.0f, 0.0f, 0.0f));
     glm::mat4 scale = glm::scale(glm::mat4(1), glm::vec3(1.0f, 1.0f, 1.0f));
-    glm::mat4 rotation = glm::rotate(glm::mat4(1), glm::radians((a++)), glm::vec3(0, 1.0f, 0.0f));
+    glm::mat4 rotation = glm::rotate(glm::mat4(1), glm::radians((a++)), glm::vec3(0.0f, 1.0f, 0.0f));
     return transtation * scale * rotation;
 }
 
 int main(int argc, char* argv[]) {
-
     SDL_Init(SDL_INIT_EVERYTHING);
-
     glm::vec3 translation(0.0f, 0.0f, 0.0f); // Definir la posición del objeto en el mundo
     glm::vec3 rotationAngles(0.0f, 0.0f, 0.0f); // Ángulos de rotación en los ejes X, Y y Z (en grados)
     glm::vec3 scale(1.0f, 1.0f, 1.0f);
@@ -225,11 +226,7 @@ int main(int argc, char* argv[]) {
     }
 
 // Aplicar una rotación adicional de 180 grados alrededor del eje X para invertir la nave
-    glm::mat4 additionalRotation = glm::rotate(glm::mat4(1.0f), glm::radians(180.0f), glm::vec3(1.0f, 0.0f, 0.0f));
 
-    for (glm::vec3& vertex : vertices) {
-        vertex = glm::vec3(additionalRotation * glm::vec4(vertex, 1.0f));
-    }
 
     std::vector<Vertex> vertexArray = setupVertexArray(vertices, normal, faces);
 
