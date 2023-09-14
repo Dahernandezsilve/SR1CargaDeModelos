@@ -18,7 +18,9 @@ add_executable(SR1CargaDeModelos main.cpp
         loadObj.h
         point.h
         framebuffer.h
-        shaders.h)
+        shaders.h
+        fastNoise.h
+)
 
 set_target_properties(${EXECUTABLE_NAME} PROPERTIES LINK_FLAGS "-Wl,-subsystem,console")
 target_include_directories(SR1CargaDeModelos PRIVATE ${SDL2_INCLUDE_DIRS})

@@ -3,6 +3,9 @@
 #include "uniform.h"
 #include "fragment.h"
 #include "color.h"
+#include "fastNoise.h"
+
+float newTime = 0.5f;
 
 void printMatrix(const glm::mat4& myMatrix) {
     // Imprimir los valores de la matriz
@@ -45,14 +48,196 @@ Vertex vertexShader(const Vertex& vertex, const Uniforms& uniforms) {
     fragment.color = fragmentColor;
     // printVec3(vertexRedux);
     // Return the transformed vertex as a vec3
-    return Vertex {vertexRedux, normal};
+    return Vertex {vertexRedux, normal, vertex.position};
 }
 
+// Declara un objeto FastNoiseLite
 
-Color fragmentShader(const Fragment& fragment) {
-    // Example: Assign a constant color to each fragment
-    // You can modify this function to implement more complex shading
-    // based on the fragment's attributes (e.g., depth, interpolated normals, texture coordinates, etc.)
+
+Color fragmentShader(Fragment& fragment) {
+
+    FastNoiseLite noise;
+    glm::vec2 fragmentCoords(fragment.original.x, fragment.original.y);
+    float scale = 100000.0f;
+
+    if (true) {
+        // Utiliza FastNoiseLite para generar un valor de ruido aleatorio
+        float noiseValue = noise.GetNoise(fragmentCoords.x * scale, fragmentCoords.y * scale);
+
+        // Define un umbral de brillo para las estrellas
+        float brightnessThreshold = 0.97f; // Ajusta esto según lo deseado
+
+        // Comprueba si el valor de ruido es lo suficientemente alto para ser una estrella
+        if (noiseValue > brightnessThreshold) {
+            // Define el color de las estrellas (por ejemplo, blanco)
+            Color starColor(100, 100, 100);
+            int o = rand() % 156;
+            starColor.r += o;
+            starColor.g += o;
+            starColor.b += o;
+
+            // Aplica el color de la estrella al fragmento
+            fragment.color = starColor;
+
+            return fragment.color;
+        }
+    }
+
+    return fragment.color;
+}
+
+Color fragmentShader2(Fragment& fragment) {
+    // Obtiene las coordenadas del fragmento en el espacio 2D
+    glm::vec2 fragmentCoords(fragment.original.x, fragment.original.y);
+
+    // Define los colores base de los aros de lava
+    Color lavaColor1 = Color(255, 255, 0); // Rojo para el primer anillo
+    Color lavaColor2 = Color(255, 125, 0); // Rojo oscuro-anaranjado para el segundo anillo
+
+    FastNoiseLite noise;
+    noise.SetNoiseType(FastNoiseLite:: NoiseType_Cellular);
+    noise.SetSeed(1337);
+    noise.SetFrequency(0.010f);
+    noise.SetFractalType(FastNoiseLite:: FractalType_PingPong);
+    noise.SetFractalOctaves(4);
+    noise.SetFractalLacunarity(2 + newTime);
+    noise.SetFractalGain(0.90f);
+    noise.SetFractalWeightedStrength(0.70f);
+    noise.SetFractalPingPongStrength(3 );
+    noise.SetCellularDistanceFunction(FastNoiseLite:: CellularDistanceFunction_Euclidean);
+    noise.SetCellularReturnType(FastNoiseLite:: CellularReturnType_Distance2Add);
+    noise.SetCellularJitter(1);
+
+    float ox = 3000.0f;
+    float oy =3000.0f;
+    float zoom = 5000.0f;
+
+    float noiseValue = abs(noise.GetNoise((fragment.original.x + ox) * zoom, (fragment.original.y + oy) * zoom));
+
+    Color tmpColor = (noiseValue < 0.1f) ? lavaColor1 : lavaColor2;
+
+
+    fragment.color = tmpColor * fragment.z;
+    return fragment.color;
+}
+
+Color fragmentShader3(Fragment& fragment) {
+    Color color;
+
+    // Obtiene las coordenadas del fragmento en el espacio 2D
+    glm::vec2 fragmentCoords(fragment.original.x, fragment.original.y);
+
+    // Calcula la distancia horizontal desde el centro del fragmento al origen (0, 0)
+    float distanceX = glm::abs(fragmentCoords.y);
+
+    // Define un umbral para determinar si un fragmento será una estrella
+    float starThreshold = 0.995f; // Ajusta esto según lo deseado
+
+    // Genera estrellas aleatoriamente en el fondo del cielo
+    if (distanceX < starThreshold) {
+        // Define un umbral de brillo para las estrellas
+        float brightnessThreshold = 0.7f; // Ajusta esto según lo deseado
+
+        // Genera un valor de brillo aleatorio para la estrella
+        float starBrightness = static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
+
+        // Comprueba si la estrella es lo suficientemente brillante
+        if (starBrightness > brightnessThreshold) {
+            // Define el color de las estrellas (por ejemplo, blanco)
+            Color starColor(255, 0, 0);
+
+            // Aplica el color de la estrella al fragmento
+            fragment.color = starColor * fragment.z;
+
+            // Escala el brillo de la estrella por su
+
+            return fragment.color;
+        }
+    }
+
+    // Si no es una estrella, puedes continuar con el procesamiento actual
+    // (por ejemplo, puedes mantener el código existente que genera los aros de lava).
+
+    // ...
+
+    return fragment.color;
+}
+
+Color fragmentShader4(Fragment& fragment) {
+    Color color;
+
+    // Obtiene las coordenadas del fragmento en el espacio 2D
+    glm::vec2 fragmentCoords(fragment.original.x, fragment.original.y);
+
+    // Calcula la distancia horizontal desde el centro del fragmento al origen (0, 0)
+    float distanceX = glm::abs(fragmentCoords.y);
+
+    // Define un umbral para determinar si un fragmento será una estrella
+    float starThreshold = 0.995f; // Ajusta esto según lo deseado
+
+    // Genera estrellas aleatoriamente en el fondo del cielo
+    if (distanceX < starThreshold) {
+        // Define un umbral de brillo para las estrellas
+        float brightnessThreshold = 0.2f; // Ajusta esto según lo deseado
+
+        // Genera un valor de brillo aleatorio para la estrella
+        float starBrightness = static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
+
+        // Comprueba si la estrella es lo suficientemente brillante
+        if (starBrightness > brightnessThreshold) {
+            // Define el color de las estrellas (por ejemplo, blanco)
+            Color starColor(0, 120, 20);
+
+            // Aplica el color de la estrella al fragmento
+            fragment.color = starColor * fragment.z;
+
+            // Escala el brillo de la estrella por su
+
+            return fragment.color;
+        }
+    }
+
+    // Si no es una estrella, puedes continuar con el procesamiento actual
+    // (por ejemplo, puedes mantener el código existente que genera los aros de lava).
+
+    // ...
+
+    return fragment.color;
+}
+
+Color fragmentShaderS(Fragment& fragment) {
+    Color color;
+
+    // Obtiene las coordenadas del fragmento en el espacio 2D
+    glm::vec2 fragmentCoords(fragment.original.x, fragment.original.y);
+
+    // Calcula la distancia horizontal desde el centro del fragmento al origen (0, 0)
+    float distanceX = glm::abs(fragmentCoords.y);
+
+    // Define el ancho horizontal de los aros de lava y los valores de atenuación para cada anillo
+    float lavaWidth1 = 0.1f; // Ancho del primer anillo
+    float lavaWidth2 = 0.4f; // Ancho del segundo anillo
+    float lavaWidth3 = 0.5f; // Ancho del tercer anillo
+    float attenuation1 = glm::smoothstep(lavaWidth1 - 0.1f, lavaWidth1, distanceX);
+    float attenuation2 = glm::smoothstep(lavaWidth2 - 0.05f, lavaWidth2, distanceX) - attenuation1;
+    float attenuation3 = glm::smoothstep(lavaWidth3 - 0.05f, lavaWidth3, distanceX) - attenuation2 - attenuation1;
+
+    // Define los colores base de los aros de lava
+    Color lavaColor1 = Color(255, 0, 0); // Rojo para el primer anillo
+    Color lavaColor2 = Color(255, 69, 0); // Rojo oscuro-anaranjado para el segundo anillo
+    Color lavaColor3 = Color(255, 165, 0); // Naranja para el tercer anillo
+
+    // Configura y genera el valor de ruido utilizando FastNoise
+    FastNoiseLite noise;
+    noise.SetSeed(12345); // Configura una semilla aleatoria (ajusta según sea necesario)
+    float noiseValue = noise.GetNoise(fragment.original.x, fragment.original.y);
+
+    // Escala y ajusta el valor de ruido para que tenga un rango adecuado para la mezcla
+    float noiseScale = 2.0f;
+    noiseValue = (noiseValue + 1.0f) * noiseScale;
+
+    // Combina los colores de los aros de lava en función de la atenuación y el valor de ruido
+    fragment.color = (lavaColor1 * attenuation1 + lavaColor2 * attenuation2 + lavaColor3 * attenuation3) + Color(noiseValue, noiseValue, noiseValue);
 
     return fragment.color;
 }

@@ -12,17 +12,32 @@
 const int WINDOW_WIDTH = 800;
 const int WINDOW_HEIGHT = 800;
 
+Uint32 frameStart;      // Tiempo de inicio del cuadro actual
+Uint32 frameTime;       // Tiempo transcurrido en el cuadro actual
+int frameCount = 0;     // Contador de cuadros renderizados
+int fps = 0;            // FPS actual
+
+SDL_Renderer* renderer;
+std::array<double, WINDOW_WIDTH * WINDOW_HEIGHT> zbuffer;
+
+struct Model {
+    Uniforms uniforms;
+    std::vector<Vertex> vertices;
+    int i;
+};
+
 Color clearColor = {0, 0, 0, 255};
 Color currentColor = {255, 255, 255, 255};
 Color colorA(255, 0, 0, 255); // Red color
 Color colorB(0, 255, 255, 255); // Green color
 Color colorC(0, 24, 255, 255); // Blue color
+
 glm::vec3 L = glm::vec3(0, 0, 200.0f); // Dirección de la luz en el espacio del ojo
 
 Uniforms uniforms;
-SDL_Renderer* renderer;
-
-std::array<double, WINDOW_WIDTH * WINDOW_HEIGHT> zbuffer;
+Uniforms uniforms2;
+Uniforms uniforms3;
+Uniforms uniforms4;
 
 Color interpolateColor(const glm::vec3& barycentricCoord, const Color& colorA, const Color& colorB, const Color& colorC) {
     float u = barycentricCoord.x;
@@ -83,13 +98,14 @@ std::vector<Fragment> triangle(const Vertex& a, const Vertex& b, const Vertex& c
 
                 fragments.push_back(fragment);
             }
+
         }
     }
 
     return fragments;
 }
 
-void render(const std::vector<Vertex>& vertexArray,  const Uniforms& uniforms) {
+void render(const std::vector<Vertex>& vertexArray,  const Uniforms& uniforms, int id) {
     std::vector<Vertex> transformedVertexArray;
     for (const auto& vertex : vertexArray) {
         auto transformedVertex = vertexShader(vertex, uniforms);
@@ -118,11 +134,14 @@ void render(const std::vector<Vertex>& vertexArray,  const Uniforms& uniforms) {
         // Iterate over each point in the bounding box
         for (int y = minY; y <= maxY; ++y) {
             for (int x = minX; x <= maxX; ++x) {
+                if (y<0 || x<0 || x>WINDOW_WIDTH || y>WINDOW_HEIGHT)
+                    continue;
+
                 glm::vec2 pixelPosition(static_cast<float>(x) + 0.5f, static_cast<float>(y) + 0.5f); // Central point of the pixel
                 glm::vec3 barycentricCoord = calculateBarycentricCoord(A, B, C, pixelPosition);
 
                 if (isBarycentricCoordInsideTriangle(barycentricCoord)) {
-                    Color g {200,0,0};
+                    Color g {0,0,0};
                     // Interpolate attributes (color, depth, etc.) using barycentric coordinates
                     Color interpolatedColor = interpolateColor(barycentricCoord, g, g, g);
 
@@ -139,23 +158,42 @@ void render(const std::vector<Vertex>& vertexArray,  const Uniforms& uniforms) {
                     // Apply fragment shader to calculate final color with shading
                     Color finalColor = interpolatedColor * fragmentIntensity;
 
+                    glm::vec3 original = a.original * barycentricCoord.x + b.original * barycentricCoord.y + c.original * barycentricCoord.z;
                     // Create a fragment with the position, interpolated attributes, and depth
                     Fragment fragment;
                     fragment.position = glm::ivec2(x, y);
                     fragment.color = finalColor;
                     fragment.z = depth;  // Set the depth of the fragment
+                    fragment.original = original;
 
-                    // Check if the fragment is closer than the stored value in the z-buffer
+
                     int index = y * WINDOW_WIDTH + x;
                     if (depth < zbuffer[index]) {
                         // Apply fragment shader to calculate final color
-                        Color fragmentShaderf = fragmentShader(fragment);
+
 
                         // Draw the fragment using SDL_SetRenderDrawColor and SDL_RenderDrawPoint
-                        SDL_SetRenderDrawColor(renderer, fragmentShaderf.r, fragmentShaderf.g, fragmentShaderf.b, fragmentShaderf.a);
-                        SDL_RenderDrawPoint(renderer, x, WINDOW_HEIGHT-y);
+                        //std::cout << "El valor de i es: " << id << std::endl;
+                        if (id==0){
+                            Color fragmentShaderf = fragmentShader(fragment);
+                            SDL_SetRenderDrawColor(renderer, fragmentShaderf.r, fragmentShaderf.g, fragmentShaderf.b, fragmentShaderf.a);
+                        }
+                        if (id==1){
+                            Color fragmentShaderf2 = fragmentShader2(fragment);
+                            SDL_SetRenderDrawColor(renderer, fragmentShaderf2.r, fragmentShaderf2.g, fragmentShaderf2.b, fragmentShaderf2.a);
+                        }
+                        if (id==2){
+                            Color fragmentShaderf3 = fragmentShader3(fragment);
+                            SDL_SetRenderDrawColor(renderer, fragmentShaderf3.r, fragmentShaderf3.g, fragmentShaderf3.b, fragmentShaderf3.a);
+                        }
+                        if (id==3){
+                            Color fragmentShaderf4 = fragmentShader4(fragment);
+                            SDL_SetRenderDrawColor(renderer, fragmentShaderf4.r, fragmentShaderf4.g, fragmentShaderf4.b, fragmentShaderf4.a);
+                        }
 
+                        SDL_RenderDrawPoint(renderer, x, WINDOW_HEIGHT-y);
                         // Update the z-buffer value for this pixel
+                        //newTime = 0.5f + 1.0f;
                         zbuffer[index] = depth;
                     }
                 }
@@ -166,13 +204,10 @@ void render(const std::vector<Vertex>& vertexArray,  const Uniforms& uniforms) {
 
 glm::mat4 createViewportMatrix() {
     glm::mat4 viewport = glm::mat4(1.0f);
-
     // Scale
     viewport = glm::scale(viewport, glm::vec3(WINDOW_WIDTH / 2.0f, WINDOW_HEIGHT / 2.0f, 0.5f));
-
     // Translate
     viewport = glm::translate(viewport, glm::vec3(1.0f, 1.0f, 0.5f));
-
     return viewport;
 }
 
@@ -181,7 +216,6 @@ glm::mat4 createProjectionMatrix() {
     float aspectRatio = WINDOW_WIDTH / WINDOW_HEIGHT;
     float nearClip = 0.1f;
     float farClip = 100.0f;
-
     return glm::perspective(glm::radians(fovInDegrees), aspectRatio, nearClip, farClip);
 }
 
@@ -189,19 +223,39 @@ float a = 3.14f / 3.0f;
 
 glm::mat4 createModelMatrix() {
     glm::mat4 transtation = glm::translate(glm::mat4(1), glm::vec3(0.0f, 0.0f, 0.0f));
+    glm::mat4 scale = glm::scale(glm::mat4(1), glm::vec3(5.0f, 5.0f, 5.0f));
+    glm::mat4 rotation = glm::mat4(1.0f);;
+    return transtation * scale * rotation;
+}
+
+glm::mat4 createModelMatrix2() {
+    glm::mat4 transtation = glm::translate(glm::mat4(1), glm::vec3(0.0f, 0.5f, 0.0f));
     glm::mat4 scale = glm::scale(glm::mat4(1), glm::vec3(1.0f, 1.0f, 1.0f));
     glm::mat4 rotation = glm::rotate(glm::mat4(1), glm::radians((a++)), glm::vec3(0.0f, 1.0f, 0.0f));
     return transtation * scale * rotation;
 }
 
+glm::mat4 createModelMatrix3() {
+    glm::mat4 transtation = glm::translate(glm::mat4(1), glm::vec3(0.2f, 0.4f, 0.0f));
+    glm::mat4 scale = glm::scale(glm::mat4(1), glm::vec3(0.5f, 0.5f, 0.5f));
+    glm::mat4 rotation = glm::rotate(glm::mat4(1), glm::radians((a++)*5), glm::vec3(0.0f, 1.0f, 0.0f));
+    return transtation * scale * rotation;
+}
+
+glm::mat4 createModelMatrix4() {
+    glm::mat4 transtation = glm::translate(glm::mat4(1), glm::vec3(0.2f, 0.3f, 0.0f));
+    glm::mat4 scale = glm::scale(glm::mat4(1), glm::vec3(0.2f, 0.2f, 0.2f));
+    glm::mat4 rotation = glm::rotate(glm::mat4(1), glm::radians((a++)*500), glm::vec3(0.0f, 1.0f, 0.0f));
+    return transtation * scale * rotation;
+}
+
+
+
 int main(int argc, char* argv[]) {
-    SDL_Init(SDL_INIT_EVERYTHING);
-    glm::vec3 translation(0.0f, 0.0f, 0.0f); // Definir la posición del objeto en el mundo
-    glm::vec3 rotationAngles(0.0f, 0.0f, 0.0f); // Ángulos de rotación en los ejes X, Y y Z (en grados)
-    glm::vec3 scale(1.0f, 1.0f, 1.0f);
 
+    std::vector<Model> models;
 
-    glm::vec3 cameraPosition(0.0f, 0.0f, 5.0f); // Mueve la cámara hacia atrás
+    glm::vec3 cameraPosition(0.0f, 0.0f, 3.0f); // Mueve la cámara hacia atrás
     glm::vec3 targetPosition(0.0f, 0.0f, 0.0f);   // Coloca el centro de la escena en el origen
     glm::vec3 upVector(0.0f, 1.0f, 0.0f);
 
@@ -209,33 +263,52 @@ int main(int argc, char* argv[]) {
 
     srand(time(nullptr));
 
+    SDL_Init(SDL_INIT_EVERYTHING);
     SDL_Window* window = SDL_CreateWindow("Pixel Drawer", 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, 0);
-    renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+    renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
 
+    // Resto del código...
     int renderWidth, renderHeight;
     SDL_GetRendererOutputSize(renderer, &renderWidth, &renderHeight);
 
     std::vector<glm::vec3> vertices;
     std::vector<glm::vec3> normal;
     std::vector<Face> faces;
-
-    bool success = loadOBJ("../Nave6.obj", vertices, normal, faces);
+    bool success = loadOBJ("../sphere.obj", vertices, normal, faces);
     if (!success) {
         // Manejo del error si la carga del archivo falla
         return 1;
     }
 
-// Aplicar una rotación adicional de 180 grados alrededor del eje X para invertir la nave
-
-
     std::vector<Vertex> vertexArray = setupVertexArray(vertices, normal, faces);
+
+    std::vector<glm::vec3> vertices2;
+    std::vector<glm::vec3> normal2;
+    std::vector<Face> faces2;
+    bool success2 = loadOBJ("../Nave6.obj", vertices2, normal2, faces2);
+    if (!success2) {
+        // Manejo del error si la carga del archivo falla
+        return 1;
+    }
+
+    std::vector<Vertex> vertexArray2 = setupVertexArray(vertices2, normal2, faces2);
 
     bool running = true;
     SDL_Event event;
-    glm::mat4 rotationMatrix = glm::mat4(1.0f); // Inicializa la matriz de rotación
-    glm::mat4 traslateMatrix = glm::mat4(1.0f); // Inicializa la matriz de rotación
-    glm::mat4 scaleMatrix = glm::mat4(1.0f); // Inicializa la matriz de rotación
+    //glm::mat4 rotationMatrix = glm::mat4(1.0f); // Inicializa la matriz de rotación
+    //glm::mat4 traslateMatrix = glm::mat4(1.0f); // Inicializa la matriz de rotación
+    //glm::mat4 scaleMatrix = glm::mat4(1.0f); // Inicializa la matriz de rotación
 
+    Model model1;
+    Model model2;
+    Model model3;
+    Model model4;
+
+    float rotationAngle = 0.0f; // Inicializa la variable de ángulo de rotación
+    // Calcula la matriz de transformación para la rotación alrededor del modelo 2
+    glm::mat4 rotationMatrix = glm::rotate(glm::mat4(1), glm::radians(rotationAngle), glm::vec3(0.0f, 1.0f, 0.0f));
+
+    frameStart = SDL_GetTicks();
     while (running) {
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_QUIT) {
@@ -243,10 +316,64 @@ int main(int argc, char* argv[]) {
             }
         }
 
+        rotationAngle += 0.01f;
+        // Define el radio de la traslación circular
+        float radius = 1.0f;
+
+// Calcula la posición en el círculo
+        float posX = glm::cos(rotationAngle) * radius;
+        float posZ = glm::sin(rotationAngle) * radius;
+
+        glm::mat4 translationMatrix = glm::translate(glm::mat4(1), glm::vec3(posX, 0.0f, posZ));
+
         uniforms.model = createModelMatrix();    // Asignar la matriz de proyección a uniforms.projection
         uniforms.projection = createProjectionMatrix();
         uniforms.viewport = createViewportMatrix();
 
+
+        model1.uniforms = uniforms;
+        model1.vertices = vertexArray;
+        model1.i = 0;
+        models.push_back(model1);
+
+        glm::vec3 cameraPosition2(0.0f, 0.0f, 5.0f); // Mueve la cámara hacia atrás
+        glm::vec3 targetPosition2(0.0f, 0.0f, 0.0f);   // Coloca el centro de la escena en el origen
+        glm::vec3 upVector2(0.0f, 1.0f, 0.0f);
+
+
+        uniforms2.model = createModelMatrix2();
+        uniforms2.view = glm::lookAt(cameraPosition2, targetPosition2, upVector2);
+        uniforms2.viewport = createViewportMatrix();
+        uniforms2.projection = createProjectionMatrix();
+
+        model2.uniforms = uniforms2;
+        model2.vertices = vertexArray;
+        model2.i = 1;
+        models.push_back(model2);
+
+        glm::vec3 cameraPosition3(0.0f, 0.0f, 5.0f); // Mueve la cámara hacia atrás
+        glm::vec3 targetPosition3(0.0f, 0.0f, 0.0f);   // Coloca el centro de la escena en el origen
+        glm::vec3 upVector3(0.0f, 1.0f, 0.0f);
+
+        uniforms3.model = createModelMatrix3() * translationMatrix;
+        uniforms3.view = glm::lookAt(cameraPosition3, targetPosition3, upVector3);
+        uniforms3.viewport = createViewportMatrix();
+        uniforms3.projection = createProjectionMatrix();
+
+        model3.uniforms = uniforms3;
+        model3.vertices = vertexArray;
+        model3.i = 2;
+        models.push_back(model3);
+
+
+        uniforms4.model = createModelMatrix4() * translationMatrix;
+        uniforms4.view = glm::lookAt(cameraPosition3, targetPosition3, upVector3);
+        uniforms4.viewport = createViewportMatrix();
+        uniforms4.projection = createProjectionMatrix();
+        model4.uniforms= uniforms4;
+        model4.vertices = vertexArray;
+        model4.i = 3;
+        models.push_back(model4);
 
         SDL_SetRenderDrawColor(renderer, clearColor.r, clearColor.g, clearColor.b, clearColor.a);
         SDL_RenderClear(renderer);
@@ -254,15 +381,30 @@ int main(int argc, char* argv[]) {
         glm::vec4 transformedLight = glm::inverse(createModelMatrix()) * glm::vec4(L, 0.0f);
         glm::vec3 transformedLightDirection = glm::normalize(glm::vec3(transformedLight));
 
-        // Llamada a la función render con la matriz de vértices transformados
-        render(vertexArray, uniforms);
-
+        for (const Model& model : models) {;
+            render(model.vertices, model.uniforms, model.i);
+        }
+        //render(vertexArray, uniforms);
         SDL_RenderPresent(renderer);
+        frameTime = SDL_GetTicks() - frameStart;
+        frameCount++;
+
+// Si ha transcurrido un segundo, actualiza los FPS y reinicia el contador de cuadros
+        if (frameTime >= 1000) {
+            fps = frameCount;
+            frameCount = 0;
+            frameStart = SDL_GetTicks(); // Reinicia el tiempo de inicio para el siguiente segundo
+        }
+
+// Luego, muestra los FPS en la ventana de salida (puedes elegir la posición y el formato)
+        std::string fpsText = "FPS: " + std::to_string(fps);
+        SDL_SetWindowTitle(window, fpsText.c_str());
+
     }
 
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
-    SDL_Quit();
 
+    SDL_Quit();
     return 0;
 }
