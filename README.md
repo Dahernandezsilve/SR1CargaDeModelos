@@ -1,6 +1,33 @@
-# Documentación del Código en Markdown
+# Documentación
 
-![SR2finalizado](SR2finalizado.gif)
+# Planetas
+
+### Tierra
+![earthSolarSystem](earthSolarSystem.gif)
+
+### Sol
+![sunSolarSystem](sunSolarSystem.gif)
+
+### Planeta gaseoso V1
+![gasPlanet](gasPlanet.gif)
+
+### Planeta gaseoso V2
+![gasPlanet](gasPlanetV2.gif)
+
+### Planeta gaseoso V3
+![gasPlanet](gasPlanetV3.gif)
+
+### Planeta rocoso
+![rockPlanet](rockPlanet.gif)
+
+### Estrellas verdes
+![starPlanetGreen](starPlanetGreen.gif)
+
+### Estrellas rojas
+![starPlanetRed](starPlanetRed.gif)
+
+### Planeta random
+![randomPlanet](randomPlanet.gif)
 
 Este documento proporciona una descripción y explicación del código en C++ proporcionado. El código está destinado a renderizar un modelo tridimensional utilizando técnicas de gráficos rasterizados y sombreado.
 
