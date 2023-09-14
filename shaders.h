@@ -86,7 +86,7 @@ Color fragmentShader(Fragment& fragment) {
     return fragment.color;
 }
 
-Color fragmentShader2(Fragment& fragment) {
+Color sunSolarSystem(Fragment& fragment) {
     // Obtiene las coordenadas del fragmento en el espacio 2D
     glm::vec2 fragmentCoords(fragment.original.x, fragment.original.y);
 
@@ -121,47 +121,50 @@ Color fragmentShader2(Fragment& fragment) {
     return fragment.color;
 }
 
-Color fragmentShader3(Fragment& fragment) {
-    Color color;
-
-    // Obtiene las coordenadas del fragmento en el espacio 2D
+Color earthSolarSystem(Fragment& fragment) {
     glm::vec2 fragmentCoords(fragment.original.x, fragment.original.y);
 
-    // Calcula la distancia horizontal desde el centro del fragmento al origen (0, 0)
-    float distanceX = glm::abs(fragmentCoords.y);
+    Color ocean = Color(0, 191, 255);
+    Color earth = Color(0, 128, 0);
+    Color polar = Color(255, 255, 255); // Blanco para las regiones polares
 
-    // Define un umbral para determinar si un fragmento será una estrella
-    float starThreshold = 0.995f; // Ajusta esto según lo deseado
+    FastNoiseLite noise;
+    noise.SetNoiseType(FastNoiseLite::NoiseType_Cellular);
+    noise.SetSeed(1337);
+    noise.SetFrequency(0.005f);
+    noise.SetFractalType(FastNoiseLite::FractalType_PingPong);
+    noise.SetFractalOctaves(6);
+    noise.SetFractalLacunarity(2 + newTime);
+    noise.SetFractalGain(1.0f);
+    noise.SetFractalWeightedStrength(0.90f);
+    noise.SetFractalPingPongStrength(3);
+    noise.SetCellularDistanceFunction(FastNoiseLite::CellularDistanceFunction_Euclidean);
+    noise.SetCellularReturnType(FastNoiseLite::CellularReturnType_Distance2Add);
+    noise.SetCellularJitter(1);
 
-    // Genera estrellas aleatoriamente en el fondo del cielo
-    if (distanceX < starThreshold) {
-        // Define un umbral de brillo para las estrellas
-        float brightnessThreshold = 0.7f; // Ajusta esto según lo deseado
+    float ox = 3000.0f;
+    float oy = 3000.0f;
+    float zoom = 500.0f;
 
-        // Genera un valor de brillo aleatorio para la estrella
-        float starBrightness = static_cast<float>(rand()) / static_cast<float>(RAND_MAX);
+    float noiseValue = abs(noise.GetNoise((fragment.original.x + ox) * zoom, (fragment.original.y + oy) * zoom));
 
-        // Comprueba si la estrella es lo suficientemente brillante
-        if (starBrightness > brightnessThreshold) {
-            // Define el color de las estrellas (por ejemplo, blanco)
-            Color starColor(255, 0, 0);
+    // Definir un umbral para la transición entre el color de la tierra y el color polar
+    float threshold = 0.1f;
 
-            // Aplica el color de la estrella al fragmento
-            fragment.color = starColor * fragment.z;
+    if (noiseValue < threshold) {
+        Color tmpColor = ocean;
+        fragment.color = tmpColor * fragment.z;
+    } else {
+        // Calcular el gradiente vertical basado en noiseValue
+        float gradient = (noiseValue - threshold) / (1.0f - threshold);
 
-            // Escala el brillo de la estrella por su
-
-            return fragment.color;
-        }
+        // Mezclar el color de la tierra y el color polar usando el gradiente
+        fragment.color = earth * (1.0f - gradient) + polar * gradient;
     }
-
-    // Si no es una estrella, puedes continuar con el procesamiento actual
-    // (por ejemplo, puedes mantener el código existente que genera los aros de lava).
-
-    // ...
 
     return fragment.color;
 }
+
 
 Color fragmentShader4(Fragment& fragment) {
     Color color;
@@ -205,7 +208,7 @@ Color fragmentShader4(Fragment& fragment) {
     return fragment.color;
 }
 
-Color fragmentShaderS(Fragment& fragment) {
+Color randomPlanet(Fragment& fragment) {
     Color color;
 
     // Obtiene las coordenadas del fragmento en el espacio 2D

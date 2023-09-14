@@ -179,11 +179,11 @@ void render(const std::vector<Vertex>& vertexArray,  const Uniforms& uniforms, i
                             SDL_SetRenderDrawColor(renderer, fragmentShaderf.r, fragmentShaderf.g, fragmentShaderf.b, fragmentShaderf.a);
                         }
                         if (id==1){
-                            Color fragmentShaderf2 = fragmentShader2(fragment);
+                            Color fragmentShaderf2 = earthSolarSystem(fragment);
                             SDL_SetRenderDrawColor(renderer, fragmentShaderf2.r, fragmentShaderf2.g, fragmentShaderf2.b, fragmentShaderf2.a);
                         }
                         if (id==2){
-                            Color fragmentShaderf3 = fragmentShader3(fragment);
+                            Color fragmentShaderf3 = sunSolarSystem(fragment);
                             SDL_SetRenderDrawColor(renderer, fragmentShaderf3.r, fragmentShaderf3.g, fragmentShaderf3.b, fragmentShaderf3.a);
                         }
                         if (id==3){
@@ -229,7 +229,7 @@ glm::mat4 createModelMatrix() {
 }
 
 glm::mat4 createModelMatrix2() {
-    glm::mat4 transtation = glm::translate(glm::mat4(1), glm::vec3(0.0f, 0.5f, 0.0f));
+    glm::mat4 transtation = glm::translate(glm::mat4(1), glm::vec3(0.0f, 0.0f, 0.0f));
     glm::mat4 scale = glm::scale(glm::mat4(1), glm::vec3(1.0f, 1.0f, 1.0f));
     glm::mat4 rotation = glm::rotate(glm::mat4(1), glm::radians((a++)), glm::vec3(0.0f, 1.0f, 0.0f));
     return transtation * scale * rotation;
@@ -334,7 +334,7 @@ int main(int argc, char* argv[]) {
         model1.uniforms = uniforms;
         model1.vertices = vertexArray;
         model1.i = 0;
-        models.push_back(model1);
+        //models.push_back(model1);
 
         glm::vec3 cameraPosition2(0.0f, 0.0f, 5.0f); // Mueve la cámara hacia atrás
         glm::vec3 targetPosition2(0.0f, 0.0f, 0.0f);   // Coloca el centro de la escena en el origen
@@ -363,7 +363,7 @@ int main(int argc, char* argv[]) {
         model3.uniforms = uniforms3;
         model3.vertices = vertexArray;
         model3.i = 2;
-        models.push_back(model3);
+        //models.push_back(model3);
 
 
         uniforms4.model = createModelMatrix4() * translationMatrix;
@@ -373,7 +373,7 @@ int main(int argc, char* argv[]) {
         model4.uniforms= uniforms4;
         model4.vertices = vertexArray;
         model4.i = 3;
-        models.push_back(model4);
+        //models.push_back(model4);
 
         SDL_SetRenderDrawColor(renderer, clearColor.r, clearColor.g, clearColor.b, clearColor.a);
         SDL_RenderClear(renderer);
