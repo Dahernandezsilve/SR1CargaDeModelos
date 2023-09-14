@@ -179,7 +179,7 @@ void render(const std::vector<Vertex>& vertexArray,  const Uniforms& uniforms, i
                             SDL_SetRenderDrawColor(renderer, fragmentShaderf.r, fragmentShaderf.g, fragmentShaderf.b, fragmentShaderf.a);
                         }
                         if (id==1){
-                            Color fragmentShaderf2 = earthSolarSystem(fragment);
+                            Color fragmentShaderf2 = gasPlanet( fragment);
                             SDL_SetRenderDrawColor(renderer, fragmentShaderf2.r, fragmentShaderf2.g, fragmentShaderf2.b, fragmentShaderf2.a);
                         }
                         if (id==2){
@@ -187,13 +187,13 @@ void render(const std::vector<Vertex>& vertexArray,  const Uniforms& uniforms, i
                             SDL_SetRenderDrawColor(renderer, fragmentShaderf3.r, fragmentShaderf3.g, fragmentShaderf3.b, fragmentShaderf3.a);
                         }
                         if (id==3){
-                            Color fragmentShaderf4 = fragmentShader4(fragment);
+                            Color fragmentShaderf4 = gasPlanet(fragment);
                             SDL_SetRenderDrawColor(renderer, fragmentShaderf4.r, fragmentShaderf4.g, fragmentShaderf4.b, fragmentShaderf4.a);
                         }
 
                         SDL_RenderDrawPoint(renderer, x, WINDOW_HEIGHT-y);
                         // Update the z-buffer value for this pixel
-                        //newTime = 0.5f + 1.0f;
+                        newTime = 0.5f + 1.0f;
                         zbuffer[index] = depth;
                     }
                 }
