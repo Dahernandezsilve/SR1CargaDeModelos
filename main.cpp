@@ -179,7 +179,7 @@ void render(const std::vector<Vertex>& vertexArray,  const Uniforms& uniforms, i
                             SDL_SetRenderDrawColor(renderer, fragmentShaderf.r, fragmentShaderf.g, fragmentShaderf.b, fragmentShaderf.a);
                         }
                         if (id==1){
-                            Color fragmentShaderf2 = gasPlanet( fragment);
+                            Color fragmentShaderf2 =  earthSolarSystem( fragment);
                             SDL_SetRenderDrawColor(renderer, fragmentShaderf2.r, fragmentShaderf2.g, fragmentShaderf2.b, fragmentShaderf2.a);
                         }
                         if (id==2){

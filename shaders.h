@@ -191,6 +191,63 @@ Color gasPlanetV2(Fragment& fragment) {
     return fragment.color;
 }
 
+Color earthSolarSystem(Fragment& fragment) {
+    glm::vec2 fragmentCoords(fragment.original.x, fragment.original.y);
+
+    Color ocean = Color(0, 191, 255);
+    Color earth = Color(0, 128, 0);
+    Color polar = Color(255, 255, 255); // Blanco para las regiones polares
+
+    FastNoiseLite noise;
+    noise.SetNoiseType(FastNoiseLite::NoiseType_Cellular);
+    noise.SetSeed(1337);
+    noise.SetFrequency(0.005f);
+    noise.SetFractalType(FastNoiseLite::FractalType_PingPong);
+    noise.SetFractalOctaves(6);
+    noise.SetFractalLacunarity(2 + newTime);
+    noise.SetFractalGain(1.0f);
+    noise.SetFractalWeightedStrength(0.90f);
+    noise.SetFractalPingPongStrength(3);
+    noise.SetCellularDistanceFunction(FastNoiseLite::CellularDistanceFunction_Euclidean);
+    noise.SetCellularReturnType(FastNoiseLite::CellularReturnType_Distance2Add);
+    noise.SetCellularJitter(1);
+
+    float ox = 3000.0f;
+    float oy = 3000.0f;
+    float zoom = 500.0f;
+
+    float noiseValue = abs(noise.GetNoise((fragment.original.x + ox) * zoom, (fragment.original.y + oy) * zoom));
+
+    // Definir las coordenadas de los polos norte y sur
+    glm::vec2 northPoleCoords(0.0f, 1.0f); // Polo norte en la parte superior
+    glm::vec2 southPoleCoords(0.0f, -1.0f); // Polo sur en la parte inferior
+
+    // Calcular la distancia desde el fragmento a los polos norte y sur
+    float distanceToNorthPole = glm::distance(fragmentCoords, northPoleCoords);
+    float distanceToSouthPole = glm::distance(fragmentCoords, southPoleCoords);
+
+    // Definir un radio para las manchas polares
+    float polarRadius = 0.1f;
+
+    // Verificar si el fragmento está dentro del radio de alguno de los polos
+    if (distanceToNorthPole < polarRadius || distanceToSouthPole < polarRadius) {
+        // Está en uno de los polos, por lo que se muestra el color polar
+        fragment.color = polar;
+    } else {
+        // No está en un polo, mezcla el color de la tierra y el océano
+        float threshold = 0.1f;
+        if (noiseValue < threshold) {
+            Color tmpColor = ocean;
+            fragment.color = tmpColor * fragment.z;
+        } else {
+            float gradient = (noiseValue - threshold) / (1.0f - threshold);
+            fragment.color = earth * (1.0f - gradient) + ocean * gradient;
+        }
+    }
+
+    return fragment.color;
+}
+
 Color gasPlanetV3(Fragment& fragment) {
     // Obtiene las coordenadas del fragmento en el espacio 2D
     glm::vec2 fragmentCoords(fragment.original.x, fragment.original.y);
