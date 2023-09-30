@@ -109,13 +109,12 @@ Color sunSolarSystem(Fragment& fragment) {
     noise.SetCellularJitter(1);
 
     float ox = 3000.0f;
-    float oy =3000.0f;
+    float oy = 3000.0f;
     float zoom = 5000.0f;
 
-    float noiseValue = abs(noise.GetNoise((fragment.original.x + ox) * zoom, (fragment.original.y + oy) * zoom));
+    float noiseValue = abs(noise.GetNoise((fragment.original.x + ox) * zoom, (fragment.original.y + oy) * zoom, fragment.original.z * zoom));
 
     Color tmpColor = (noiseValue < 0.1f) ? lavaColor1 : lavaColor2;
-
 
     fragment.color = tmpColor * fragment.z;
     return fragment.color;
@@ -216,7 +215,7 @@ Color earthSolarSystem(Fragment& fragment) {
     float oy = 3000.0f;
     float zoom = 500.0f;
 
-    float noiseValue = abs(noise.GetNoise((fragment.original.x + ox) * zoom, (fragment.original.y + oy) * zoom));
+    float noiseValue = abs(noise.GetNoise((fragment.original.x + ox) * zoom, (fragment.original.y + oy) * zoom, (fragment.original.z * zoom)));
 
     // Definir las coordenadas de los polos norte y sur
     glm::vec2 northPoleCoords(0.0f, 1.0f); // Polo norte en la parte superior
@@ -244,7 +243,6 @@ Color earthSolarSystem(Fragment& fragment) {
             fragment.color = earth * (1.0f - gradient) + ocean * gradient;
         }
     }
-
     return fragment.color;
 }
 
@@ -316,7 +314,6 @@ Color rockPlanet(Fragment& fragment) {
         float gradient = (noiseValue - threshold) / (1.0f - threshold);
         fragment.color = rockColor1 * (1.0f - gradient) + craterColor * gradient;
     }
-
     return fragment.color;
 }
 
@@ -359,7 +356,6 @@ Color randomPlanet(Fragment& fragment) {
 
 
 Color starPlanetGreen(Fragment& fragment) {
-
     FastNoiseLite noise;
     glm::vec2 fragmentCoords(fragment.original.x, fragment.original.y);
     float scale = 100000.0f;
@@ -386,7 +382,6 @@ Color starPlanetGreen(Fragment& fragment) {
             return fragment.color;
         }
     }
-
     return fragment.color;
 }
 
@@ -415,10 +410,15 @@ Color gasPlanet(Fragment& fragment) {
 
             // Aplica el color de la estrella al fragmento
             fragment.color = starColor;
-
             return fragment.color;
         }
     }
+    return fragment.color;
+}
 
+Color starship(Fragment& fragment) {
+    Color shipColor(255, 0, 0);
+
+    fragment.color = shipColor;
     return fragment.color;
 }
