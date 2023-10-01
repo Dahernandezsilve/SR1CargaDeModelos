@@ -35,7 +35,7 @@ enum ShaderId {
 
 struct Model {
     Uniforms uniforms;
-    std::vector<Vertex> vertices;
+    std::vector<Vertex>* vertices;
     ShaderId i;
 };
 
@@ -46,8 +46,6 @@ Color colorB(0, 255, 255, 255); // Green color
 Color colorC(0, 24, 255, 255); // Blue color
 
 glm::vec3 L = glm::vec3(0, 0, 200.0f); // Dirección de la luz en el espacio del ojo
-
-
 
 Uniforms uniforms;
 Uniforms uniforms2;
@@ -235,7 +233,7 @@ glm::mat4 createModelMatrixEntity(glm::vec3 matrixTranslation, glm::vec3 matrixS
 glm::mat4 createModelMatrixEntityWithMoon(const glm::mat4& modelMatrix3) {
     glm::mat4 translation = glm::translate(glm::mat4(1), glm::vec3(0.0f, 0.3f, 0.0f));
     glm::mat4 scale = glm::scale(glm::mat4(1), glm::vec3(0.2f, 0.2f, 0.2f));
-    glm::mat4 rotation = glm::rotate(glm::mat4(1), glm::radians((a++) * 4), glm::vec3(0.0f, 1.0f, 0.0f));
+    glm::mat4 rotation = glm::rotate(glm::mat4(1), glm::radians((a++)), glm::vec3(0.0f, 1.0f, 0.0f));
     return modelMatrix3 * translation * scale * rotation;
 }
 
@@ -290,8 +288,11 @@ int main(int argc, char* argv[]) {
     float xRotate = 0.0f;
     float yRotate = 0.0f;
     float rotationAngle = 0.0f;
+    bool moveCameraToFrontOfEarth = false;
+    bool moveCameraToFrontOfGasPlanet = false;
 
-    glm::vec3 cameraPosition(0.0f, 0.0f, 10.0f);
+
+    glm::vec3 cameraPosition(0.0f, 0.0f, 5.0f);
     glm::vec3 targetPosition(0.0f, 0.0f, 0.0f);
     glm::vec3 upVector(0.0f, 1.0f, 0.0f);
 
@@ -304,12 +305,12 @@ int main(int argc, char* argv[]) {
                 running = false;
             } else if (event.type == SDL_KEYDOWN) {
                 switch (event.key.keysym.sym) {
-                    case SDLK_s:
+                    case SDLK_w:
                         // Mueve la cámara hacia adelante
                         cameraPosition -= moveSpeedBackForward * glm::normalize(targetPosition - cameraPosition);
-                        targetPosition -=  moveSpeedBackForward * (targetPosition - cameraPosition);
+                        targetPosition -= moveSpeedBackForward * (targetPosition - cameraPosition);
                         break;
-                    case SDLK_w:
+                    case SDLK_s:
                         // Mueve la cámara hacia atrás
                         cameraPosition += moveSpeedBackForward * glm::normalize(targetPosition - cameraPosition);
                         targetPosition += moveSpeedBackForward * (targetPosition - cameraPosition);
@@ -336,6 +337,14 @@ int main(int argc, char* argv[]) {
                     case SDLK_DOWN:
                         yRotate += 1.0f;
                         break;
+                    case SDLK_t:
+                        moveCameraToFrontOfEarth = !moveCameraToFrontOfEarth;
+                        break;
+                    case SDLK_1:
+                        moveCameraToFrontOfGasPlanet = !moveCameraToFrontOfGasPlanet;
+                        break;
+
+
                 }
             }
         }
@@ -343,13 +352,6 @@ int main(int argc, char* argv[]) {
         L = cameraPosition - targetPosition;
         rotationAngle += 0.001f;
         targetPosition = glm::vec3(10.0f * sin(glm::radians(xRotate)) * cos(glm::radians(yRotate)), 10.0f * sin(glm::radians(yRotate)), -10.0f * cos(glm::radians(xRotate)) * cos(glm::radians(yRotate))) + cameraPosition;
-
-        std::cout << "X: " << xRotate<< std::endl;
-        std::cout << "Y: " << yRotate<< std::endl;
-        std::cout << "TargetPosition" << std::endl;
-        printVec3(targetPosition);
-        std::cout << "CameraPosition" << std::endl;
-        printVec3(cameraPosition);
 
         glm::mat4 translationMatrix = calculatePositionInCircle(rotationAngle, 3.0f);
         glm::mat4 translationMatrix2 = calculatePositionInCircle(rotationAngle, 8.0f);
@@ -360,7 +362,7 @@ int main(int argc, char* argv[]) {
         uniforms.viewport = createViewportMatrix();
 
         model1.uniforms = uniforms;
-        model1.vertices = vertexArrayEntity;
+        model1.vertices = &vertexArrayEntity;
         model1.i = ESTRELLA;
 
         uniforms2.model = createModelMatrixEntity(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(0.0f, 1.0f, 0.0f), 0.2);
@@ -369,16 +371,37 @@ int main(int argc, char* argv[]) {
         uniforms2.projection = createProjectionMatrix();
 
         model2.uniforms = uniforms2;
-        model2.vertices = vertexArrayEntity;
+        model2.vertices = &vertexArrayEntity;
         model2.i = SOL;
 
-        uniforms3.model = createModelMatrixEntity(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.5f, 0.5f, 0.5f), glm::vec3(0.0f, 1.0f, 0.0f), 0.2) * translationMatrix;
-        uniforms3.view = glm::lookAt(cameraPosition, targetPosition, upVector);
-        uniforms3.viewport = createViewportMatrix();
-        uniforms3.projection = createProjectionMatrix();
+        if (moveCameraToFrontOfEarth) {
+            // Aplica la matriz de traslación solo a la posición de la cámara
+            glm::vec3 newCameraPosition = glm::vec3(3.0f, 0.0f, 0.0f);
+            glm::vec3 newShipCameraPosition = glm::vec3(3.0f, 0.0f, 5.0f);
+            //Actualiza la vista y otros parámetros de la cámara si es necesario
+
+            cameraPosition = newShipCameraPosition;
+
+            uniforms3.model = createModelMatrixEntity(newCameraPosition, glm::vec3(0.5f, 0.5f, 0.5f), glm::vec3(0.0f, 1.0f, 0.0f), 0.2) ;
+            uniforms3.view = glm::lookAt(cameraPosition, targetPosition, upVector);
+            uniforms3.projection = createProjectionMatrix();
+            uniforms3.viewport = createViewportMatrix();
+
+            uniforms6.model = createModelMatrixEntity(cameraPosition,glm::vec3(0.1f, 0.1f, 0.1f),glm::vec3(0.0f, 1.0f, 0.0f),0);
+            uniforms6.view = glm::lookAt(cameraPosition, targetPosition, upVector);
+            uniforms6.viewport = createViewportMatrix();
+            uniforms6.projection = createProjectionMatrix();
+        } else {
+            uniforms3.model = createModelMatrixEntity(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.5f, 0.5f, 0.5f), glm::vec3(0.0f, 1.0f, 0.0f), 0.2) * translationMatrix;
+            uniforms3.view = glm::lookAt(cameraPosition, targetPosition, upVector);
+            uniforms3.viewport = createViewportMatrix();
+            uniforms3.projection = createProjectionMatrix();
+        }
+
+
 
         model3.uniforms = uniforms3;
-        model3.vertices = vertexArrayEntity;
+        model3.vertices = &vertexArrayEntity;
         model3.i = TIERRA;
 
         uniforms4.model = createModelMatrixEntityWithMoon(uniforms3.model) * translationMatrix;
@@ -387,16 +410,36 @@ int main(int argc, char* argv[]) {
         uniforms4.projection = createProjectionMatrix();
 
         model4.uniforms= uniforms4;
-        model4.vertices = vertexArrayEntity;
+        model4.vertices = &vertexArrayEntity;
         model4.i = LUNA;
 
-        uniforms5.model = createModelMatrixEntity(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.3f, 0.3f, 0.3f),glm::vec3(0.0f, 1.0f, 0.0f), 0.6) * translationMatrix2;
-        uniforms5.view = glm::lookAt(cameraPosition, targetPosition, upVector);
-        uniforms5.viewport = createViewportMatrix();
-        uniforms5.projection = createProjectionMatrix();
+
+        if (moveCameraToFrontOfGasPlanet) {
+            // Aplica la matriz de traslación solo a la posición de la cámara
+            glm::vec3 newCameraPosition = glm::vec3(3.0f, 0.0f, 0.0f);
+            glm::vec3 newShipCameraPosition = glm::vec3(3.0f, 0.0f, 5.0f);
+            //Actualiza la vista y otros parámetros de la cámara si es necesario
+
+            cameraPosition = newShipCameraPosition;
+
+            uniforms5.model = createModelMatrixEntity(newCameraPosition, glm::vec3(0.3f, 0.3f, 0.3f),glm::vec3(0.0f, 1.0f, 0.0f), 0.6);
+            uniforms5.view = glm::lookAt(cameraPosition, targetPosition, upVector);
+            uniforms5.viewport = createViewportMatrix();
+            uniforms5.projection = createProjectionMatrix();
+
+            uniforms6.model = createModelMatrixEntity(cameraPosition,glm::vec3(0.1f, 0.1f, 0.1f),glm::vec3(0.0f, 1.0f, 0.0f),0);
+            uniforms6.view = glm::lookAt(cameraPosition, targetPosition, upVector);
+            uniforms6.viewport = createViewportMatrix();
+            uniforms6.projection = createProjectionMatrix();
+        } else {
+            uniforms5.model = createModelMatrixEntity(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.3f, 0.3f, 0.3f),glm::vec3(0.0f, 1.0f, 0.0f), 0.6) * translationMatrix2;
+            uniforms5.view = glm::lookAt(cameraPosition, targetPosition, upVector);
+            uniforms5.viewport = createViewportMatrix();
+            uniforms5.projection = createProjectionMatrix();
+        }
 
         model5.uniforms= uniforms5;
-        model5.vertices = vertexArrayEntity;
+        model5.vertices = &vertexArrayEntity;
         model5.i = PLANETA_GASEOSO;
 
         uniforms6.model = createModelMatrixShip(cameraPosition, targetPosition, upVector, xRotate, yRotate);
@@ -405,7 +448,7 @@ int main(int argc, char* argv[]) {
         uniforms6.projection = createProjectionMatrix();
 
         model6.uniforms= uniforms6;
-        model6.vertices = vertexArrayShip;
+        model6.vertices = &vertexArrayShip;
         model6.i = NAVE;
 
         models.push_back(model1);
@@ -415,9 +458,6 @@ int main(int argc, char* argv[]) {
         models.push_back(model5);
         models.push_back(model6);
 
-        //glm::vec4 transformedLight = glm::inverse(createModelMatrixStars()) * glm::vec4(L, 0.0f);
-        //glm::vec3 transformedLightDirection = glm::normalize(glm::vec3(transformedLight));
-
         SDL_SetRenderDrawColor(renderer, clearColor.r, clearColor.g, clearColor.b, clearColor.a);
         SDL_RenderClear(renderer);
         std::fill(zbuffer.begin(), zbuffer.end(), std::numeric_limits<double>::max());
@@ -425,7 +465,7 @@ int main(int argc, char* argv[]) {
         std::vector<std::thread> sunThreads;
 
         for (const Model& model : models) {
-            sunThreads.emplace_back(render, model.vertices, model.uniforms, model.i);
+            sunThreads.emplace_back(render, *model.vertices, model.uniforms, model.i);
         }
         for (std::thread& thread : sunThreads) {
             thread.join();
