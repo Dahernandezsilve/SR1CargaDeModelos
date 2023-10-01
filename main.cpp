@@ -50,6 +50,13 @@ Uniforms uniforms4;
 Uniforms uniforms5;
 Uniforms uniforms6;
 
+Model model1;
+Model model2;
+Model model3;
+Model model4;
+Model model5;
+Model model6;
+
 Color interpolateColor(const glm::vec3& barycentricCoord, const Color& colorA, const Color& colorB, const Color& colorC) {
     float u = barycentricCoord.x;
     float v = barycentricCoord.y;
@@ -196,8 +203,8 @@ glm::mat4 createProjectionMatrix() {
 float a = 3.14f / 3.0f;
 
 glm::mat4 createModelMatrixStars() {
-    glm::mat4 translation = glm::translate(glm::mat4(1), glm::vec3(0.0f, 0.0f, 0.0f));
-    glm::mat4 scale = glm::scale(glm::mat4(1), glm::vec3(10.0f, 10.0f, 10.0f));
+    glm::mat4 translation = glm::translate(glm::mat4(1), glm::vec3(0.0f, 0.0f, 30.0f));
+    glm::mat4 scale = glm::scale(glm::mat4(1), glm::vec3(20.0f, 20.0f, 20.0f));
     glm::mat4 rotation = glm::mat4(1.0f);
     return translation * scale * rotation;
 }
@@ -210,269 +217,204 @@ glm::mat4 createModelMatrixEntity(glm::vec3 matrixTranslation, glm::vec3 matrixS
 }
 
 glm::mat4 createModelMatrixEntityWithMoon(const glm::mat4& modelMatrix3) {
-    // Aquí defines la transformación del "modelo 4" en relación con el "modelo 3"
     glm::mat4 translation = glm::translate(glm::mat4(1), glm::vec3(0.0f, 0.3f, 0.0f));
     glm::mat4 scale = glm::scale(glm::mat4(1), glm::vec3(0.2f, 0.2f, 0.2f));
     glm::mat4 rotation = glm::rotate(glm::mat4(1), glm::radians((a++) * 4), glm::vec3(0.0f, 1.0f, 0.0f));
-    // Aplica la transformación del "modelo 4" en relación con el "modelo 3"
     return modelMatrix3 * translation * scale * rotation;
 }
 
-glm::mat4 createModelMatrix6(glm::vec3 cameraPosition3, glm::vec3 targetPosition3,glm::vec3 upVector3, float xRotate, float yRotate) {
-    glm::mat4 translation = glm::translate(glm::mat4(1), (targetPosition3 - cameraPosition3) /7.0f + cameraPosition3 +upVector3*0.15f);
+glm::mat4 createModelMatrixShip(glm::vec3 cameraPosition, glm::vec3 targetPosition,glm::vec3 upVector, float xRotate, float yRotate) {
+    std::cout << "Valor de xRotate: " << xRotate << std::endl;
+    std::cout << "Valor de yRotate: " << yRotate << std::endl;
+    glm::mat4 translation = glm::translate(glm::mat4(1), (targetPosition - cameraPosition) /7.0f + cameraPosition +upVector *0.15f);
     glm::mat4 scale = glm::scale(glm::mat4(1), glm::vec3(0.3f, 0.3f, 0.3f));
-    glm::mat4 rotationX = glm::rotate(glm::mat4(1), glm::radians(xRotate), glm::vec3(0.0f, 1.0f, 0.0f));
-    //glm::mat4 rotationY = glm::rotate(glm::mat4(1), glm::radians((yRotate)+90.0f), glm::vec3(0.0f, 0.0f, 1.0f));
-    return translation * scale * rotationX;
+    glm::mat4 rotationX = glm::rotate(glm::mat4(1), glm::radians(xRotate*2), glm::vec3(0.0f, 1.0f, 0.0f));
+    glm::mat4 rotationY = glm::rotate(glm::mat4(1), glm::radians(yRotate), glm::vec3(1.0f, 0.0f, 0.0f));
+    std::cout << "Valor de xRotate: " << xRotate << std::endl;
+    std::cout << "Valor de yRotate: " << yRotate << std::endl;
+
+    return translation * scale * rotationX * rotationY;
 }
 
-void updateCameraOrientation() {
-
+glm::mat4 calculatePositionInCircle(float rotationAngle, float radius){
+    float posX = glm::cos(rotationAngle) * radius;
+    float posZ = glm::sin(rotationAngle) * radius;
+    return glm::translate(glm::mat4(1), glm::vec3(posX, 0.0f, posZ));
 }
 
 int main(int argc, char* argv[]) {
+    //srand(time(nullptr));
 
     SDL_Init(SDL_INIT_EVERYTHING);
-    std::vector<Model> models;
-    glm::vec3 cameraPosition(0.0f, 0.0f, 30.0f); // Mueve la cámara hacia atrás
-    glm::vec3 targetPosition(0.0f, 0.0f, 0.0f);   // Coloca el centro de la escena en el origen
-    glm::vec3 upVector(0.0f, 1.0f, 0.0f);
-
-    uniforms.view = glm::lookAt(cameraPosition, targetPosition, upVector);
-
-    srand(time(nullptr));
-
-    SDL_Window* window = SDL_CreateWindow("Pixel Drawer", 0, 0, WINDOW_WIDTH, WINDOW_HEIGHT, 0);
+    frameStart = SDL_GetTicks();
+    SDL_Window* window = SDL_CreateWindow("Pixel Drawer", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, WINDOW_WIDTH, WINDOW_HEIGHT, 0);
     renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
 
-    // Resto del código...
+    std::vector<Model> models;
     int renderWidth, renderHeight;
     SDL_GetRendererOutputSize(renderer, &renderWidth, &renderHeight);
 
-    std::vector<glm::vec3> vertices;
-    std::vector<glm::vec3> normal;
-    std::vector<Face> faces;
-    bool success = loadOBJ("../sphere.obj", vertices, normal, faces);
-    if (!success) {
-        // Manejo del error si la carga del archivo falla
-        return 1;
-    }
+    std::vector<glm::vec3> verticesEntity;
+    std::vector<glm::vec3> normalEntity;
+    std::vector<Face> facesEntity;
+    bool success = loadOBJ("../sphere.obj", verticesEntity, normalEntity, facesEntity);
+    if (!success) { return 1; } // Manejo del error si la carga del archivo falla
+    std::vector<Vertex> vertexArrayEntity = setupVertexArray(verticesEntity, normalEntity, facesEntity);
 
-    std::vector<Vertex> vertexArray = setupVertexArray(vertices, normal, faces);
+    std::vector<glm::vec3> verticesShip;
+    std::vector<glm::vec3> normalShip;
+    std::vector<Face> facesShip;
+    bool success2 = loadOBJ("../Nave6.obj", verticesShip, normalShip, facesShip);
+    if (!success2) { return 1; } // Manejo del error si la carga del archivo falla
+    std::vector<Vertex> vertexArrayShip = setupVertexArray(verticesShip, normalShip, facesShip);
 
-    std::vector<glm::vec3> vertices2;
-    std::vector<glm::vec3> normal2;
-    std::vector<Face> faces2;
-    bool success2 = loadOBJ("../Nave6.obj", vertices2, normal2, faces2);
-    if (!success2) {
-        // Manejo del error si la carga del archivo falla
-        return 1;
-    }
+    float moveSpeedBackForward = 0.1f;
+    float moveSpeedLeftRight = 0.05f;
+    float xRotate = 1;
+    float yRotate = 1;
+    float rotationAngle = 0.0f;
 
-    std::vector<Vertex> vertexArray2 = setupVertexArray(vertices2, normal2, faces2);
+    glm::mat4 rotationMatrix = glm::rotate(glm::mat4(1), glm::radians(rotationAngle), glm::vec3(0.0f, 1.0f, 0.0f));
+    glm::vec3 cameraPosition(0.0f, 0.0f, 10.0f);
+    glm::vec3 targetPosition(0.0f, 0.0f, 0.0f);
+    glm::vec3 upVector(0.0f, 1.0f, 0.0f);
 
     bool running = true;
     SDL_Event event;
 
-    Model model1;
-    Model model2;
-    Model model3;
-    Model model4;
-    Model model5;
-    Model model6;
-
-    float rotationAngle = 0.0f; // Inicializa la variable de ángulo de rotación
-    // Calcula la matriz de transformación para la rotación alrededor del modelo 2
-    glm::mat4 rotationMatrix = glm::rotate(glm::mat4(1), glm::radians(rotationAngle), glm::vec3(0.0f, 1.0f, 0.0f));
-
-    frameStart = SDL_GetTicks();
-
-    glm::vec3 cameraPosition2(0.0f, 0.0f, 10.0f); // Mueve la cámara hacia atrás
-    glm::vec3 targetPosition2(0.0f, 0.0f, 0.0f);   // Coloca el centro de la escena en el origen
-    glm::vec3 upVector2(0.0f, 1.0f, 0.0f);
-
-
-    glm::vec3 cameraPosition3(0.0f, 0.0f, 10.0f); // Mueve la cámara hacia atrás
-    glm::vec3 targetPosition3(0.0f, 0.0f, 0.0f);   // Coloca el centro de la escena en el origen
-    glm::vec3 upVector3(0.0f, 1.0f, 0.0f);
-
-    float moveSpeed = 0.1f;
-    float moveSpeed2 = 0.05f;
-    float xRotate = 1;
-    float yRotate = 1;
-// Dentro del bucle principal
     while (running) {
         while (SDL_PollEvent(&event)) {
             if (event.type == SDL_QUIT) {
                 running = false;
             } else if (event.type == SDL_KEYDOWN) {
-                // Maneja las teclas presionadas
                 switch (event.key.keysym.sym) {
                     case SDLK_w:
                         // Mueve la cámara hacia adelante
-                        cameraPosition -= moveSpeed * glm::normalize(targetPosition - cameraPosition);
-                        cameraPosition3 -= moveSpeed * glm::normalize(targetPosition - cameraPosition);
-                        targetPosition -=  moveSpeed * (targetPosition - cameraPosition);
+                        cameraPosition -= moveSpeedBackForward * glm::normalize(targetPosition - cameraPosition);
+                        targetPosition -=  moveSpeedBackForward * (targetPosition - cameraPosition);
                         break;
                     case SDLK_s:
                         // Mueve la cámara hacia atrás
-                        cameraPosition += moveSpeed * glm::normalize(targetPosition - cameraPosition);
-                        cameraPosition3 += moveSpeed * glm::normalize(targetPosition - cameraPosition);
-                        targetPosition += moveSpeed * (targetPosition - cameraPosition);
-                        targetPosition3 +=  moveSpeed * (targetPosition - cameraPosition);
+                        cameraPosition += moveSpeedBackForward * glm::normalize(targetPosition - cameraPosition);
+                        targetPosition += moveSpeedBackForward * (targetPosition - cameraPosition);
                         break;
                     case SDLK_a:
                         // Mover hacia la izquierda
-                        cameraPosition += moveSpeed2 * glm::normalize(glm::cross((targetPosition - cameraPosition), upVector3))*5.0f;
-                        cameraPosition3 += moveSpeed2 * glm::normalize(glm::cross((targetPosition - cameraPosition), upVector3))*5.0f;
-                        targetPosition += moveSpeed2 * glm::normalize(glm::cross((targetPosition - cameraPosition),upVector3))*5.0f;
-                        targetPosition3 += moveSpeed2 * glm::normalize(glm::cross((targetPosition - cameraPosition),upVector3))*5.0f;
+                        cameraPosition += moveSpeedLeftRight * glm::normalize(glm::cross((targetPosition - cameraPosition), upVector))*5.0f;
+                        targetPosition += moveSpeedLeftRight * glm::normalize(glm::cross((targetPosition - cameraPosition),upVector))*5.0f;
                         break;
                     case SDLK_d:
                         // Mover hacia la derecha
-                        cameraPosition -= moveSpeed2 * glm::normalize(glm::cross((targetPosition - cameraPosition), upVector3))*5.0f;
-                        cameraPosition3 -= moveSpeed2 * glm::normalize(glm::cross((targetPosition - cameraPosition), upVector3))*5.0f;
-                        targetPosition -= moveSpeed2 * glm::normalize(glm::cross((targetPosition - cameraPosition),upVector3))*5.0f;
-                        targetPosition3 -= moveSpeed2 * glm::normalize(glm::cross((targetPosition - cameraPosition),upVector3))*5.0f;
+                        cameraPosition -= moveSpeedLeftRight * glm::normalize(glm::cross((targetPosition - cameraPosition), upVector))*5.0f;
+                        targetPosition -= moveSpeedLeftRight * glm::normalize(glm::cross((targetPosition - cameraPosition),upVector))*5.0f;
                         break;
                     case SDLK_LEFT:
-                        xRotate += 10.0f;
+                        xRotate = (xRotate < 55.0f) ? xRotate + 5.0f: xRotate;
                         break;
                     case SDLK_RIGHT:
-                        xRotate -= 10.0f;
+                        xRotate = (xRotate > -55.0f) ? xRotate - 5.0f: xRotate;
                         break;
                     case SDLK_UP:
-                        yRotate -= 10.0f;
+                        yRotate = (yRotate > -55.0f) ? yRotate - 5.0f: yRotate;
                         break;
                     case SDLK_DOWN:
-                        yRotate += 10.0f;
+                        yRotate = (yRotate < 55.0f) ? yRotate + 5.0f: yRotate;
                         break;
-
                 }
             }
-
         }
-        targetPosition = glm::vec3(5.0f * sin(glm::radians(xRotate)) * cos(glm::radians(yRotate)), 5.0f * sin(glm::radians(yRotate)), -5.0f * cos(glm::radians(xRotate)) * cos(glm::radians(yRotate))) + cameraPosition;
-        targetPosition3 = glm::vec3(5.0f * sin(glm::radians(xRotate)) * cos(glm::radians(yRotate)), 5.0f * sin(glm::radians(yRotate)), -5.0f * cos(glm::radians(xRotate)) * cos(glm::radians(yRotate))) + cameraPosition3;
-
-
-        // Actualizar la matriz de vista con la nueva posición de la cámara
-        uniforms.view = glm::lookAt(cameraPosition, targetPosition, upVector);
-        uniforms2.view = glm::lookAt(cameraPosition, targetPosition, upVector);
-        uniforms3.view = glm::lookAt(cameraPosition, targetPosition, upVector);
-        uniforms4.view = glm::lookAt(cameraPosition, targetPosition, upVector);
-        uniforms5.view = glm::lookAt(cameraPosition, targetPosition, upVector);
-        uniforms6.view = glm::lookAt(cameraPosition3, targetPosition3, upVector3);
-
         models.clear();
         rotationAngle += 0.001f;
-        // Define el radio de la traslación circular
-        float radius = 3.0f;
 
-        // Calcula la posición en el círculo
-        float posX = glm::cos(rotationAngle) * radius;
-        float posZ = glm::sin(rotationAngle) * radius;
-
-        glm::mat4 translationMatrix = glm::translate(glm::mat4(1), glm::vec3(posX, 0.0f, posZ));
-
-        float radius2 = 8.0f;
-
-        // Calcula la posición en el círculo
-        float posX2 = glm::cos(rotationAngle) * radius2;
-        float posZ2 = glm::sin(rotationAngle) * radius2;
-        glm::mat4 translationMatrix2 = glm::translate(glm::mat4(1), glm::vec3(posX2, 0.0f, posZ2));
+        targetPosition = glm::vec3(5.0f * sin(glm::radians(xRotate)) * cos(glm::radians(yRotate)), 5.0f * sin(glm::radians(yRotate)), -5.0f * cos(glm::radians(xRotate)) * cos(glm::radians(yRotate))) + cameraPosition;
+        glm::mat4 translationMatrix = calculatePositionInCircle(rotationAngle, 3.0f);
+        glm::mat4 translationMatrix2 = calculatePositionInCircle(rotationAngle, 8.0f);
 
         uniforms.model = createModelMatrixStars();
+        uniforms.view = glm::lookAt(cameraPosition, targetPosition, upVector);
         uniforms.projection = createProjectionMatrix();
         uniforms.viewport = createViewportMatrix();
 
         model1.uniforms = uniforms;
-        model1.vertices = vertexArray;
+        model1.vertices = vertexArrayEntity;
         model1.i = ESTRELLA;
-        models.push_back(model1);
-
 
         uniforms2.model = createModelMatrixEntity(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(0.0f, 1.0f, 0.0f), 1);
-        uniforms2.view = glm::lookAt(cameraPosition3, targetPosition3, upVector3);
+        uniforms2.view = glm::lookAt(cameraPosition, targetPosition, upVector);
         uniforms2.viewport = createViewportMatrix();
         uniforms2.projection = createProjectionMatrix();
 
         model2.uniforms = uniforms2;
-        model2.vertices = vertexArray;
+        model2.vertices = vertexArrayEntity;
         model2.i = SOL;
-        models.push_back(model2);
 
         uniforms3.model = createModelMatrixEntity(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.5f, 0.5f, 0.5f), glm::vec3(0.0f, 1.0f, 0.0f), 1) * translationMatrix;
-        uniforms3.view = glm::lookAt(cameraPosition3, targetPosition3, upVector3);
+        uniforms3.view = glm::lookAt(cameraPosition, targetPosition, upVector);
         uniforms3.viewport = createViewportMatrix();
         uniforms3.projection = createProjectionMatrix();
 
         model3.uniforms = uniforms3;
-        model3.vertices = vertexArray;
+        model3.vertices = vertexArrayEntity;
         model3.i = TIERRA;
-        models.push_back(model3);
 
         uniforms4.model = createModelMatrixEntityWithMoon(uniforms3.model) * translationMatrix;
-        uniforms4.view = glm::lookAt(cameraPosition3, targetPosition3, upVector3);
+        uniforms4.view = glm::lookAt(cameraPosition, targetPosition, upVector);
         uniforms4.viewport = createViewportMatrix();
         uniforms4.projection = createProjectionMatrix();
 
         model4.uniforms= uniforms4;
-        model4.vertices = vertexArray;
+        model4.vertices = vertexArrayEntity;
         model4.i = LUNA;
-        models.push_back(model4);
 
         uniforms5.model = createModelMatrixEntity(glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.3f, 0.3f, 0.3f),glm::vec3(0.0f, 1.0f, 0.0f), 1.3) * translationMatrix2;
-        uniforms5.view = glm::lookAt(cameraPosition3, targetPosition3, upVector3);
+        uniforms5.view = glm::lookAt(cameraPosition, targetPosition, upVector);
         uniforms5.viewport = createViewportMatrix();
         uniforms5.projection = createProjectionMatrix();
 
         model5.uniforms= uniforms5;
-        model5.vertices = vertexArray;
+        model5.vertices = vertexArrayEntity;
         model5.i = PLANETA_GASEOSO;
-        models.push_back(model5);
 
-        uniforms6.model = createModelMatrix6(cameraPosition3, targetPosition3, upVector3, xRotate, yRotate);
-        uniforms6.view = glm::lookAt(cameraPosition3, targetPosition3, upVector3);
+        uniforms6.model = createModelMatrixShip(cameraPosition, targetPosition, upVector, xRotate, yRotate);
+        uniforms6.view = glm::lookAt(cameraPosition, targetPosition, upVector);
         uniforms6.viewport = createViewportMatrix();
         uniforms6.projection = createProjectionMatrix();
 
         model6.uniforms= uniforms6;
-        model6.vertices = vertexArray2;
+        model6.vertices = vertexArrayShip;
         model6.i = NAVE;
+
+        //models.push_back(model1);
+        models.push_back(model2);
+        models.push_back(model3);
+        models.push_back(model4);
+        models.push_back(model5);
         models.push_back(model6);
 
-        glm::vec4 transformedLight = glm::inverse(createModelMatrixStars()) * glm::vec4(L, 0.0f);
-        glm::vec3 transformedLightDirection = glm::normalize(glm::vec3(transformedLight));
+        //glm::vec4 transformedLight = glm::inverse(createModelMatrixStars()) * glm::vec4(L, 0.0f);
+        //glm::vec3 transformedLightDirection = glm::normalize(glm::vec3(transformedLight));
 
         SDL_SetRenderDrawColor(renderer, clearColor.r, clearColor.g, clearColor.b, clearColor.a);
         SDL_RenderClear(renderer);
-
-        // Clear z-buffer at the beginning of each frame
         std::fill(zbuffer.begin(), zbuffer.end(), std::numeric_limits<double>::max());
 
         for (const Model& model : models) {
             render(model.vertices, model.uniforms, model.i);
         }
 
-        //render(vertexArray, uniforms);
         SDL_RenderPresent(renderer);
         frameTime = SDL_GetTicks() - frameStart;
         frameCount++;
-
         if (frameTime >= 1000) {
             fps = frameCount;
             frameCount = 0;
             frameStart = SDL_GetTicks(); // Reinicia el tiempo de inicio para el siguiente segundo
         }
-
         std::string fpsText = "FPS: " + std::to_string(fps);
         SDL_SetWindowTitle(window, fpsText.c_str());
     }
-
     SDL_DestroyRenderer(renderer);
     SDL_DestroyWindow(window);
-
     SDL_Quit();
     return 0;
 }
