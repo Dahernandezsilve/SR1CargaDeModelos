@@ -23,13 +23,16 @@ void printVec4(const glm::vec4& vector) {
 }
 
 // Función para imprimir un vec3
-void printVec3(const glm::vec3& vector) {
-    std::cout << "(" << vector.x << ", " << vector.y << ", " << vector.z << ")";
-}
+//void printVec3(const glm::vec3& vector) {
+    //std::cout << "(" << vector.x << ", " << vector.y << ", " << vector.z << ")";
+//}
 
 
 Vertex vertexShader(const Vertex& vertex, const Uniforms& uniforms) {
-    glm::vec4 transformedVertex = uniforms.viewport * uniforms.projection * uniforms.view * uniforms.model * glm::vec4(vertex.position, 1.0f);
+    //uniforms.viewport *
+    glm::vec4 transformedVertex = uniforms.projection * uniforms.view * uniforms.model * glm::vec4(vertex.position, 1.0f);
+    double z = transformedVertex.z;
+    transformedVertex = uniforms.viewport * transformedVertex;
     // printMatrix(uniforms.viewport);
     // printMatrix(uniforms.projection);
     // printMatrix(uniforms.view);
@@ -48,7 +51,7 @@ Vertex vertexShader(const Vertex& vertex, const Uniforms& uniforms) {
     fragment.color = fragmentColor;
     // printVec3(vertexRedux);
     // Return the transformed vertex as a vec3
-    return Vertex {vertexRedux, normal, vertex.position};
+    return Vertex {vertexRedux, normal, vertex.position, z};
 }
 
 // Declara un objeto FastNoiseLite
