@@ -13,8 +13,8 @@
 
 std::mutex mutex;
 
-const int WINDOW_WIDTH = 400;
-const int WINDOW_HEIGHT = 400;
+const int WINDOW_WIDTH = 600;
+const int WINDOW_HEIGHT = 600;
 
 Uint32 frameStart;      // Tiempo de inicio del cuadro actual
 Uint32 frameTime;       // Tiempo transcurrido en el cuadro actual
@@ -234,7 +234,7 @@ glm::mat4 createProjectionMatrix() {
 float a = 3.14f / 3.0f;
 
 glm::mat4 createModelMatrixStars() {
-    glm::mat4 translation = glm::translate(glm::mat4(1), glm::vec3(0.0f, 0.0f, -10.0f));
+    glm::mat4 translation = glm::translate(glm::mat4(1), glm::vec3(0.0f, 0.0f, -30.0f));
     glm::mat4 scale = glm::scale(glm::mat4(1), glm::vec3(20.0f, 20.0f, 20.0f));
     glm::mat4 rotation = glm::mat4(1.0f);
     return translation * scale * rotation;
